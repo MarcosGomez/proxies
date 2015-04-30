@@ -70,7 +70,6 @@
 //     struct addrinfo *ai_next;      // linked list, next node
 // };
 
-#include <sys/ioctl.h>
 
 #define DEBUG 1
 #define INCOMING_PORT 5200
@@ -92,12 +91,13 @@ int main( int argc, char *argv[] ){
     int returnValue;
     struct pollfd pollFDs[NUM_OF_SOCKS];
     char buffer[256];
-    
 
+    int sendToProxy, sendToLocal; //booleans
+    
+    //Make sure IP of server is provided
     if(argc < 2){
         usage(argv);
     }
-
     printf("Starting up the client...\n");
     //Set up sockets
     // Create a socket with the socket() system call
@@ -117,6 +117,8 @@ int main( int argc, char *argv[] ){
 
     pollFDs[PROXY_POLL].fd = proxySockFD;
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+
+    sendToProxy = sendToLocal = 0; //Initalize to false
     //Mainloop
     while(1){
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
@@ -138,11 +140,11 @@ int main( int argc, char *argv[] ){
                 }
                 recv(localSockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
             }
-            if(pollFDs[LOCAL_POLL].revents & POLLOUT){
-                // if(DEBUG){
-                //     printf("Sending out data to local\n");
-                // }
-                printf("Able to send data\n");
+            if(pollFDs[LOCAL_POLL].revents & POLLOUT && sendToLocal){
+                if(DEBUG){
+                    printf("Sending out data to local\n");
+                }
+                
             }
 
             if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
@@ -163,11 +165,11 @@ int main( int argc, char *argv[] ){
                 }
                 recv(proxySockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
             }
-            if(pollFDs[PROXY_POLL].revents & POLLOUT){
-                // if(DEBUG){
-                //     printf("Sending out data to proxy\n");
-                // }
-                printf("Able to send data\n");
+            if(pollFDs[PROXY_POLL].revents & POLLOUT && sendToProxy){
+                if(DEBUG){
+                    printf("Sending out data to proxy\n");
+                }
+                
             }
 
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
