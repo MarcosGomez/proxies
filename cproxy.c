@@ -75,6 +75,7 @@
 #define DEBUG 1
 #define INCOMING_PORT 5200
 #define OUTGOING_PORT 6200
+#define TELNET_PORT 23
 #define BACKLOG 10  //how many pending connections queue will hold
 
 void usage(char *argv[]);
@@ -84,12 +85,12 @@ void error(char *msg);
 int main( int argc, char *argv[] ){
     char * inPort = "5200";
     char *serverEth1IPAddress;
-    int localSockFD, proxySockFD;
+    int listenSockFD, localSockFD, proxySockFD;
     int returnValue;
     struct pollfd uniformFileDescriptors[2];
     socklen_t clilen;
     char buffer[256];
-    struct sockaddr_in localAddr, cli_addr;
+    struct sockaddr_in localAddr, proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
 
@@ -151,8 +152,8 @@ int main( int argc, char *argv[] ){
     
 
     //localSockFD = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-    localSockFD = socket(PF_INET, SOCK_STREAM, 0);
-    if(localSockFD < 0){
+    listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(listenSockFD < 0){
         error("Error opening socket\n");
     }
     // proxySockFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -169,7 +170,7 @@ int main( int argc, char *argv[] ){
     // if(bind(localSockFD, serverInfo->ai_addr, serverInfo->ai_addrlen) < 0){
     //     error("Error on binding\n");
     // }
-    if(bind(localSockFD, (struct sockaddr *) &localAddr, sizeof(localAddr)) < 0){
+    if(bind(listenSockFD, (struct sockaddr *) &localAddr, sizeof(localAddr)) < 0){
         error("Error on binding\n");
     }
 
@@ -180,30 +181,37 @@ int main( int argc, char *argv[] ){
     if(DEBUG){
         printf("Listening for connections...\n");
     }
-    if(listen(localSockFD, BACKLOG) < 0){
+    if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
     }
 
     //Accept connection from local telnet
-    if(DEBUG){
-        printf("Accepting connections\n");
-    }
     addrLen = sizeof(connectingAddr);
-    proxySockFD = accept(localSockFD, (struct sockaddr *) &connectingAddr,  &addrLen);
-    if(proxySockFD < 0){
+    localSockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
+    if(localSockFD < 0){
         error("Error accepting connection\n");
     }
 
     if(DEBUG){
-        printf("Found a connection to accept!!!!!\n");
+        printf("Accepted a connection\n");
     }
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
         printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
     }
+    proxyAddr.sin_family = AF_INET;
+    proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
+    proxyAddr.sin_port = htons(TELNET_PORT);
+    memset(proxyAddr.sin_zero, '\0', sizeof(localAddr.sin_zero));
 
+    if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+        error("Error connecting\n");
+    }
+    if(DEBUG){
+        printf("Now connected to server side\n");
+    }
     //Keep relaying data between 2 sockets using select() or poll()
-
+    
 
 
     //freeaddrinfo(serverInfo); // free the linked list
