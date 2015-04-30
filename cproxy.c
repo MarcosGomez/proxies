@@ -83,18 +83,16 @@ void error(char *msg);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
-    char * inPort = "5200";
     char *serverEth1IPAddress;
     int listenSockFD, localSockFD, proxySockFD;
-    int returnValue;
-    struct pollfd uniformFileDescriptors[2];
-    socklen_t clilen;
-    char buffer[256];
+    //int returnValue;
+    //struct pollfd uniformFileDescriptors[2];
+    //char buffer[256];
     struct sockaddr_in localAddr, proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
 
-    struct addrinfo hints, *res, *serverInfo, *p;
+    //struct addrinfo hints, *res, *serverInfo, *p;
 
     if(argc < 2){
         usage(argv);
@@ -156,10 +154,7 @@ int main( int argc, char *argv[] ){
     if(listenSockFD < 0){
         error("Error opening socket\n");
     }
-    // proxySockFD = socket(AF_INET, SOCK_STREAM, 0);
-    // if(proxySockFD < 0){
-    //     error("Error opening socket\n");
-    // }
+    
 
     //bzero((char *) &localAddr, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
@@ -199,6 +194,11 @@ int main( int argc, char *argv[] ){
     if(DEBUG){
         printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
     }
+    proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(proxySockFD < 0){
+        error("Error opening socket\n");
+    }
+
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
     proxyAddr.sin_port = htons(TELNET_PORT);
