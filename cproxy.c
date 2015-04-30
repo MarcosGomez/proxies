@@ -128,7 +128,7 @@ int main( int argc, char *argv[] ){
 
     //Listen to TCP port 5200 for incoming connection
     if(DEBUG){
-        printf("Listening for connections...\n");
+        printf("Listening for connections...(Use \"telnet localhost 5200\"\n");
     }
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
@@ -194,9 +194,9 @@ int main( int argc, char *argv[] ){
                 recv(localSockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
             }
             if(pollFDs[LOCAL_POLL].revents & POLLOUT){
-                if(DEBUG){
-                    printf("Sending out data to local\n");
-                }
+                // if(DEBUG){
+                //     printf("Sending out data to local\n");
+                // }
                 printf("Able to send data\n");
             }
 
@@ -219,9 +219,9 @@ int main( int argc, char *argv[] ){
                 recv(proxySockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
             }
             if(pollFDs[PROXY_POLL].revents & POLLOUT){
-                if(DEBUG){
-                    printf("Sending out data to proxy\n");
-                }
+                // if(DEBUG){
+                //     printf("Sending out data to proxy\n");
+                // }
                 printf("Able to send data\n");
             }
 
