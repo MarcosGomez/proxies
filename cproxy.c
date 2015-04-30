@@ -77,6 +77,10 @@
 #define OUTGOING_PORT 6200
 #define TELNET_PORT 23
 #define BACKLOG 10  //how many pending connections queue will hold
+#define LOCAL_POLL 0
+#define PROXY_POLL 1
+#define NUM_OF_SOCKS 2
+#define TIMEOUT 3500
 
 void usage(char *argv[]);
 void error(char *msg);
@@ -85,14 +89,12 @@ void error(char *msg);
 int main( int argc, char *argv[] ){
     char *serverEth1IPAddress;
     int listenSockFD, localSockFD, proxySockFD;
-    //int returnValue;
-    //struct pollfd uniformFileDescriptors[2];
-    //char buffer[256];
+    int returnValue;
+    struct pollfd pollFDs[NUM_OF_SOCKS];
+    char buffer[256];
     struct sockaddr_in localAddr, proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
-
-    //struct addrinfo hints, *res, *serverInfo, *p;
 
     if(argc < 2){
         usage(argv);
@@ -108,69 +110,21 @@ int main( int argc, char *argv[] ){
     // Accept a connection with the accept() system call. This call typically blocks until a client connects with the server.
     // Send and receive data
 
-    
-
-    // memset(&hints, 0, sizeof(hints));
-    // hints.ai_family = AF_INET;
-    // hints.ai_socktype = SOCK_STREAM;
-    // hints.ai_flags = AI_PASSIVE;
-
-    // returnValue = getaddrinfo(serverEth1IPAddress, inPort, &hints, &serverInfo);
-    // if(returnValue != 0 ){
-    //     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(returnValue));
-    //     exit(1);
-    // }
-
-    // printf("IP addresses for %s:\n\n", serverEth1IPAddress);
-
-    // char ipstr[INET6_ADDRSTRLEN];
-    // for(p = serverInfo;p != NULL; p = p->ai_next) {
-    //     void *addr;
-    //     char *ipver;
-
-    //     // get the pointer to the address itself,
-    //     // different fields in IPv4 and IPv6:
-    //     if (p->ai_family == AF_INET) { // IPv4
-    //         struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-    //         addr = &(ipv4->sin_addr);
-    //         ipver = "IPv4";
-    //     } else { // IPv6
-    //         struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-    //         addr = &(ipv6->sin6_addr);
-    //         ipver = "IPv6";
-    //     }
-
-    //     // convert the IP to a string and print it:
-    //     inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-    //     printf("  %s: %s\n", ipver, ipstr);
-    // }
 
     
-
-    
-
-    //localSockFD = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
     listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(listenSockFD < 0){
         error("Error opening socket\n");
     }
     
-
-    //bzero((char *) &localAddr, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
     localAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     localAddr.sin_port = htons(INCOMING_PORT);
     memset(localAddr.sin_zero, '\0', sizeof(localAddr.sin_zero));
 
-    // if(bind(localSockFD, serverInfo->ai_addr, serverInfo->ai_addrlen) < 0){
-    //     error("Error on binding\n");
-    // }
     if(bind(listenSockFD, (struct sockaddr *) &localAddr, sizeof(localAddr)) < 0){
         error("Error on binding\n");
     }
-
-    // uniformFileDescriptors[0].fd = localSockFD;
-    // uniformFileDescriptors[0].events = POLLIN;
 
     //Listen to TCP port 5200 for incoming connection
     if(DEBUG){
@@ -211,15 +165,78 @@ int main( int argc, char *argv[] ){
         printf("Now connected to server side\n");
     }
     //Keep relaying data between 2 sockets using select() or poll()
-    
+    //Keep proxy up until connection is dead
 
+    pollFDs[LOCAL_POLL].fd = localSockFD;
+    pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
-    //freeaddrinfo(serverInfo); // free the linked list
+    pollFDs[PROXY_POLL].fd = proxySockFD;
+    pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+    //Mainloop
+    while(1){
+        returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
+        if(returnValue == -1){
+            error("poll Error\n");
+        }else if(returnValue == 0){
+            printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
+        }else{
+            //Check local events
+            if(pollFDs[LOCAL_POLL].revents & POLLIN){
+                if(DEBUG){
+                    printf("receiving normal data from local\n");
+                }
+                recv(localSockFD, buffer, sizeof(buffer), 0); //Receive normal data
+            }
+            if(pollFDs[LOCAL_POLL].revents & POLLPRI){
+                if(DEBUG){
+                    printf("receiving out-of-band data from local!!\n");
+                }
+                recv(localSockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
+            }
+            if(pollFDs[LOCAL_POLL].revents & POLLOUT){
+                if(DEBUG){
+                    printf("Sending out data to local\n");
+                }
+                printf("Able to send data\n");
+            }
+
+            if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
+            pollFDs[LOCAL_POLL].revents & POLLNVAL ){
+                perror("Poll returned an error from local\n");
+            }
+
+            //Check proxy events
+            if(pollFDs[PROXY_POLL].revents & POLLIN){
+                if(DEBUG){
+                    printf("receiving normal data from proxy\n");
+                }
+                recv(proxySockFD, buffer, sizeof(buffer), 0); //Receive normal data
+            }
+            if(pollFDs[PROXY_POLL].revents & POLLPRI){
+                if(DEBUG){
+                    printf("receiving out-of-band data from proxy!!\n");
+                }
+                recv(proxySockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
+            }
+            if(pollFDs[PROXY_POLL].revents & POLLOUT){
+                if(DEBUG){
+                    printf("Sending out data to proxy\n");
+                }
+                printf("Able to send data\n");
+            }
+
+            if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
+            pollFDs[PROXY_POLL].revents & POLLNVAL ){
+                perror("Poll returned an error from proxy\n");
+            }
+        }
+
+    }
+
 
     if(DEBUG){
         printf("cproxy is finished\n");
     }
-    
     return 0;
 }
 
