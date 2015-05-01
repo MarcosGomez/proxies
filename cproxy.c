@@ -158,7 +158,7 @@ int main( int argc, char *argv[] ){
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The local side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
@@ -219,7 +219,7 @@ int main( int argc, char *argv[] ){
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The proxy side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
