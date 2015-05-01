@@ -7,10 +7,10 @@
 // Telnet into cproxy using "telnet localhost 5200"
 
 #include <stdio.h>
-#include <assert.h>
-
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/poll.h>
 #include <netdb.h>
+#include <unistd.h> //close
 //int poll(struct pollfd *ufds, unsigned int nfds, int timeout);
  // struct pollfd {
  //         int    fd;       /* file descriptor */
@@ -79,18 +80,21 @@
 #define LOCAL_POLL 0
 #define PROXY_POLL 1
 #define NUM_OF_SOCKS 2
-#define TIMEOUT 3500
+#define TIMEOUT 1000
+#define MAX_BUFFER_SIZE 256
 
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
+int sendall(int s, char *buf, int *len);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
+    int nBytesLocal, nBytesProxy;
     struct pollfd pollFDs[NUM_OF_SOCKS];
-    char buffer[256];
+    char bufProxy[MAX_BUFFER_SIZE], bufLocal[MAX_BUFFER_SIZE];
 
     int sendToProxy, sendToLocal; //booleans
     
@@ -100,13 +104,6 @@ int main( int argc, char *argv[] ){
     }
     printf("Starting up the client...\n");
     //Set up sockets
-    // Create a socket with the socket() system call
-    // Bind the socket to an address using the bind() system call. For a server socket on the Internet, an address consists of a port number on the host machine.
-    // Listen for connections with the listen() system call
-    // Accept a connection with the accept() system call. This call typically blocks until a client connects with the server.
-    // Send and receive data
-
-
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
     
     //Keep relaying data between 2 sockets using select() or poll()
@@ -132,46 +129,81 @@ int main( int argc, char *argv[] ){
                 if(DEBUG){
                     printf("receiving normal data from local\n");
                 }
-                recv(localSockFD, buffer, sizeof(buffer), 0); //Receive normal data
+                nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), 0); //Receive normal data
+                if(nBytesLocal == -1){
+                    perror("recv error\n");
+                }else if(nBytesLocal == 0){
+                    printf("The remote side closed the connection on you\n");
+                    break;
+                }else{
+                    if(DEBUG){
+                        printf("Just recieved %d bytes\n", nBytesLocal);
+                    }
+                    sendToProxy = 1;
+                }
+                
             }
             if(pollFDs[LOCAL_POLL].revents & POLLPRI){
                 if(DEBUG){
                     printf("receiving out-of-band data from local!!\n");
                 }
-                recv(localSockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
+                recv(localSockFD, bufLocal, sizeof(bufLocal), MSG_OOB); //Receive out-of-band data
+                printf("Don't know what to do with out-of-band data yet!!!!");
             }
-            if(pollFDs[LOCAL_POLL].revents & POLLOUT && sendToLocal){
+            if((pollFDs[LOCAL_POLL].revents & POLLOUT) && sendToLocal){
                 if(DEBUG){
                     printf("Sending out data to local\n");
                 }
-                
+                if(sendall(localSockFD, bufProxy, &nBytesProxy) == -1){
+                    perror("Error with send\n");
+                    printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                }
+                sendToLocal = 0;
             }
-
             if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from local\n");
             }
+
+
+
 
             //Check proxy events
             if(pollFDs[PROXY_POLL].revents & POLLIN){
                 if(DEBUG){
                     printf("receiving normal data from proxy\n");
                 }
-                recv(proxySockFD, buffer, sizeof(buffer), 0); //Receive normal data
+                nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive normal data
+                if(nBytesProxy == -1){
+                    perror("recv error\n");
+                }else if(nBytesProxy == 0){
+                    printf("The remote side closed the connection on you\n");
+                    break;
+                }else{
+                    if(DEBUG){
+                        printf("Just recieved %d bytes\n", nBytesProxy);
+                    }
+                    sendToLocal = 1;
+                }
+                
             }
             if(pollFDs[PROXY_POLL].revents & POLLPRI){
                 if(DEBUG){
                     printf("receiving out-of-band data from proxy!!\n");
                 }
-                recv(proxySockFD, buffer, sizeof(buffer), MSG_OOB); //Receive out-of-band data
+                recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
+                printf("Don't know what to do with out-of-band data yet!!!!");
             }
-            if(pollFDs[PROXY_POLL].revents & POLLOUT && sendToProxy){
+            if((pollFDs[PROXY_POLL].revents & POLLOUT) && sendToProxy){
                 if(DEBUG){
                     printf("Sending out data to proxy\n");
                 }
-                
+                if(sendall(proxySockFD, bufLocal, &nBytesLocal) == -1){
+                    perror("Error with sendall\n");
+                    printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                }
+                sendToProxy = 0;
             }
-
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
             pollFDs[PROXY_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from proxy\n");
@@ -179,7 +211,10 @@ int main( int argc, char *argv[] ){
         }
 
     }
-
+    //Close sockets
+    close(proxySockFD);
+    close(localSockFD);
+    close(listenSockFD);
 
     if(DEBUG){
         printf("cproxy is finished\n");
@@ -261,3 +296,21 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     *proxySock = proxySockFD;
     *listenSock = listenSockFD;
 }
+
+int sendall(int s, char *buf, int *len)
+{
+    int total = 0;        // how many bytes we've sent
+    int bytesleft = *len; // how many we have left to send
+    int n;
+
+    while(total < *len) {
+        n = send(s, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
+    }
+
+    *len = total; // return number actually sent here
+
+    return n==-1?-1:0; // return -1 on failure, 0 on success
+} 
