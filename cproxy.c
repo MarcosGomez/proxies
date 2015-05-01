@@ -86,7 +86,7 @@
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
-int sendall(int s, char *buf, int *len);
+int sendall(int s, char *buf, int *len, int flags);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -97,6 +97,8 @@ int main( int argc, char *argv[] ){
     char bufProxy[MAX_BUFFER_SIZE], bufLocal[MAX_BUFFER_SIZE];
 
     int sendToProxy, sendToLocal; //booleans
+    int isOOBProxy, isOOBLocal; //bool, is out-of-band
+    int notSentProxy, notSentLocal; //bool
     
     //Make sure IP of server is provided
     if(argc < 2){
@@ -115,7 +117,7 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].fd = proxySockFD;
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
-    sendToProxy = sendToLocal = 0; //Initalize to false
+    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy = 0; //Initalize to false
     //Mainloop
     while(1){
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
@@ -125,40 +127,74 @@ int main( int argc, char *argv[] ){
             printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
         }else{
             //Check local events
-            if(pollFDs[LOCAL_POLL].revents & POLLIN){
+            if(notSentLocal){
                 if(DEBUG){
-                    printf("receiving normal data from local\n");
+                    printf("Skipping recieve to wait to send past data for local\n");
                 }
-                nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), 0); //Receive normal data
-                if(nBytesLocal == -1){
-                    perror("recv error\n");
-                }else if(nBytesLocal == 0){
-                    printf("The remote side closed the connection on you\n");
-                    break;
-                }else{
+            }else{
+                //RECEIVE
+                if(pollFDs[LOCAL_POLL].revents & POLLPRI){
                     if(DEBUG){
-                        printf("Just recieved %d bytes\n", nBytesLocal);
+                        printf("receiving out-of-band data from local!!\n");
                     }
-                    sendToProxy = 1;
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), MSG_OOB); //Receive out-of-band data
+                    if(nBytesLocal == -1){
+                        perror("recv error\n");
+                    }else if(nBytesLocal == 0){
+                        printf("The remote side closed the connection on you\n");
+                        break;
+                    }else{
+                        if(DEBUG){
+                            printf("Just recieved %d bytes\n", nBytesLocal);
+                        }
+                        sendToProxy = 1;
+                        isOOBProxy = 1;
+                    } 
+                }else if(pollFDs[LOCAL_POLL].revents & POLLIN){
+                    if(DEBUG){
+                        printf("receiving normal data from local\n");
+                    }
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), 0); //Receive normal data
+                    if(nBytesLocal == -1){
+                        perror("recv error\n");
+                    }else if(nBytesLocal == 0){
+                        printf("The remote side closed the connection on you\n");
+                        break;
+                    }else{
+                        if(DEBUG){
+                            printf("Just recieved %d bytes\n", nBytesLocal);
+                        }
+                        sendToProxy = 1;
+                    } 
                 }
-                
             }
-            if(pollFDs[LOCAL_POLL].revents & POLLPRI){
-                if(DEBUG){
-                    printf("receiving out-of-band data from local!!\n");
+            //SEND
+            if(sendToLocal){
+                if(pollFDs[LOCAL_POLL].revents & POLLOUT){
+                    if(isOOBLocal){
+                        if(DEBUG){
+                            printf("Sending out out-of-band data to local\n");
+                        }
+                        if(sendall(localSockFD, bufProxy, &nBytesProxy, MSG_OOB) == -1){
+                            perror("Error with send\n");
+                            printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                        }
+                        isOOBLocal = 0;
+                    }else{
+                        if(DEBUG){
+                            printf("Sending out data to local\n");
+                        }
+                        //Normal
+                        if(sendall(localSockFD, bufProxy, &nBytesProxy, 0) == -1){
+                            perror("Error with send\n");
+                            printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                        }
+                    }
+                    sendToLocal = 0;
+                    notSentLocal = 0;
+                }else{
+                    notSentLocal = 1;
                 }
-                recv(localSockFD, bufLocal, sizeof(bufLocal), MSG_OOB); //Receive out-of-band data
-                printf("Don't know what to do with out-of-band data yet!!!!");
-            }
-            if((pollFDs[LOCAL_POLL].revents & POLLOUT) && sendToLocal){
-                if(DEBUG){
-                    printf("Sending out data to local\n");
-                }
-                if(sendall(localSockFD, bufProxy, &nBytesProxy) == -1){
-                    perror("Error with send\n");
-                    printf("Only sent %d bytes because of error!\n", nBytesProxy);
-                }
-                sendToLocal = 0;
             }
             if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
@@ -169,47 +205,80 @@ int main( int argc, char *argv[] ){
 
 
             //Check proxy events
-            if(pollFDs[PROXY_POLL].revents & POLLIN){
+            if(notSentProxy){
                 if(DEBUG){
-                    printf("receiving normal data from proxy\n");
+                    printf("Skipping recieve to wait to send past data for proxy\n");
                 }
-                nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive normal data
-                if(nBytesProxy == -1){
-                    perror("recv error\n");
-                }else if(nBytesProxy == 0){
-                    printf("The remote side closed the connection on you\n");
-                    break;
-                }else{
+            }else{
+                //RECEIVE
+                if(pollFDs[PROXY_POLL].revents & POLLPRI){
                     if(DEBUG){
-                        printf("Just recieved %d bytes\n", nBytesProxy);
+                        printf("receiving out-of-band data from proxy!!\n");
                     }
-                    sendToLocal = 1;
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
+                    if(nBytesProxy == -1){
+                        perror("recv error\n");
+                    }else if(nBytesProxy == 0){
+                        printf("The remote side closed the connection on you\n");
+                        break;
+                    }else{
+                        if(DEBUG){
+                            printf("Just recieved %d bytes\n", nBytesProxy);
+                        }
+                        sendToLocal = 1;
+                        isOOBLocal = 1;
+                    }
+                }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                    if(DEBUG){
+                        printf("receiving normal data from proxy\n");
+                    }
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive normal data
+                    if(nBytesProxy == -1){
+                        perror("recv error\n");
+                    }else if(nBytesProxy == 0){
+                        printf("The remote side closed the connection on you\n");
+                        break;
+                    }else{
+                        if(DEBUG){
+                            printf("Just recieved %d bytes\n", nBytesProxy);
+                        }
+                        sendToLocal = 1;
+                    }
                 }
-                
             }
-            if(pollFDs[PROXY_POLL].revents & POLLPRI){
-                if(DEBUG){
-                    printf("receiving out-of-band data from proxy!!\n");
+            //SEND
+            if(sendToProxy){
+                if(pollFDs[PROXY_POLL].revents & POLLOUT){
+                    if(isOOBProxy){
+                        if(DEBUG){
+                            printf("Sending out out-of-band data to proxy\n");
+                        }
+                        if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
+                            perror("Error with send\n");
+                            printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                        }
+                        isOOBProxy = 0;
+                    }else{
+                        if(DEBUG){
+                            printf("Sending out data to proxy\n");
+                        }
+                        //Normal
+                        if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
+                            perror("Error with send\n");
+                            printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                        }
+                    }
+                    sendToProxy = 0;
+                    notSentProxy = 0;
+                }else{
+                    notSentProxy = 1;
                 }
-                recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
-                printf("Don't know what to do with out-of-band data yet!!!!");
-            }
-            if((pollFDs[PROXY_POLL].revents & POLLOUT) && sendToProxy){
-                if(DEBUG){
-                    printf("Sending out data to proxy\n");
-                }
-                if(sendall(proxySockFD, bufLocal, &nBytesLocal) == -1){
-                    perror("Error with sendall\n");
-                    printf("Only sent %d bytes because of error!\n", nBytesLocal);
-                }
-                sendToProxy = 0;
             }
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
             pollFDs[PROXY_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from proxy\n");
             }
         }
-
     }
     //Close sockets
     close(proxySockFD);
@@ -297,14 +366,14 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     *listenSock = listenSockFD;
 }
 
-int sendall(int s, char *buf, int *len)
+int sendall(int s, char *buf, int *len, int flags)
 {
     int total = 0;        // how many bytes we've sent
     int bytesleft = *len; // how many we have left to send
     int n;
 
     while(total < *len) {
-        n = send(s, buf+total, bytesleft, 0);
+        n = send(s, buf+total, bytesleft, flags);
         if (n == -1) { break; }
         total += n;
         bytesleft -= n;
