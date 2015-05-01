@@ -258,7 +258,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
     }
     
     proxyAddr.sin_family = AF_INET;
-    proxyAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     proxyAddr.sin_port = htons(INCOMING_PORT);
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
