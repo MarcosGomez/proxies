@@ -239,17 +239,12 @@ void error(char *msg){
     exit(1);
 }
 
-//TODO Edit this for server
+
 void setUpConnections(int *localSock, int *proxySock, int *listenSock){
     int localSockFD, proxySockFD, listenSockFD;
     struct sockaddr_in localAddr, proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
-
-    
-
-    
-
     
 
     listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
@@ -268,7 +263,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
 
     //Listen on port 6200 for incoming connection
     if(DEBUG){
-        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" if connecting directly to sproxy)\n");
+        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" if connecting directly)\n");
     }
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
@@ -286,7 +281,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
     }
     //Make a TCP connection to localhost(127.0.0.1)port 23 (Where telnet daemon is listening on)
     if(DEBUG){
-        printf("Now trying to connect to telnet on server");
+        printf("Now trying to connect to telnet on server\n");
     }
     localSockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(localSockFD < 0){
