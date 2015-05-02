@@ -126,9 +126,9 @@ int main( int argc, char *argv[] ){
                 break;
             }
         }else{
-            if(DEBUG){
-                printf("%d items in revents are enabled for local\n", returnValue);
-            }
+            // if(DEBUG){
+            //     printf("%d items in revents are enabled for local\n", returnValue);
+            // }
             numTimeoutsLocal = 0;
             //Check local events
             if(notSentLocal){
@@ -229,9 +229,9 @@ int main( int argc, char *argv[] ){
                 break;
             }
         }else{
-            if(DEBUG){
-                printf("%d items in revents are enabled for proxy\n", returnValue);
-            }
+            // if(DEBUG){
+            //     printf("%d items in revents are enabled for proxy\n", returnValue);
+            // }
             numTimeoutsProxy = 0;
 
             //Check proxy events

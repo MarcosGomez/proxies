@@ -63,6 +63,17 @@ int main( void ){
     = numTimeouts = 0; //Initalize to false
     //Mainloop
     while(1){
+        //Only check for POLLOUT when necessary to use timeouts as hearbeats
+        if(sendToLocal){
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
+        }
+        if(sendToProxy){
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
+        }
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
@@ -81,9 +92,9 @@ int main( void ){
                 break;
             }
         }else{
-            if(DEBUG){
-                printf("%d items in revents are enabled\n", returnValue);
-            }
+            // if(DEBUG){
+            //     printf("%d items in revents are enabled\n", returnValue);
+            // }
             //Check proxy events
             if(notSentProxy){
                 if(DEBUG){
