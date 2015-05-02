@@ -233,8 +233,7 @@ int main( int argc, char *argv[] ){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
-                    printf("nBytesProxy = %d, sizeof(buffer) = %d, strlen(buffer) = %d\n", nBytesProxy,
-                        sizeof(bufProxy), strlen(bufProxy));
+
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
@@ -252,6 +251,8 @@ int main( int argc, char *argv[] ){
                         printf("receiving normal data from proxy\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive normal data
+                    printf("nBytesProxy = %d, sizeof(buffer) = %d, strlen(buffer) = %d\n", nBytesProxy,
+                        sizeof(bufProxy), strlen(bufProxy));
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
