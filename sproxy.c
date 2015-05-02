@@ -74,11 +74,12 @@ int main( void ){
         }else{
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
+
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
         }else if(returnValue == 0){
-            printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
+            printf("Timeout occured! No data after %.3f seconds\n", TIMEOUT/1000.0f);
             //Send out hearbeat message
             numTimeouts++;
             sendHeartBeat(proxySockFD);
@@ -92,13 +93,13 @@ int main( void ){
                 break;
             }
         }else{
-            //Check proxy events
+            //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
                 if(DEBUG){
                     printf("Skipping recieve to wait to send past data for proxy\n");
                 }
             }else{
-                //RECEIVE
+                //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
@@ -134,7 +135,7 @@ int main( void ){
                     }
                 }
             }
-            //SEND
+            //SEND - NEED TO ADD HEADER
             if(sendToProxy){
                 if(pollFDs[PROXY_POLL].revents & POLLOUT){
                     if(isOOBProxy){
@@ -167,7 +168,9 @@ int main( void ){
                 perror("Poll returned an error from proxy\n");
             }
 
-
+//---------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
 
             //Check local events
             if(notSentLocal){

@@ -28,17 +28,9 @@ struct tcpheader {
 } __attribute__ ((packed)); // total tcp header length: 20 bytes (=160 bits) 
 */
 
-/*
-#define HEARTBEAT 0
-#define INIT 1
-#define DATA 2
-struct customHdr{
-    uint8_t type; //heartbeat, new connection initiation, app data
-    uint32_t sequencNumber;
-    uint32_t acknowledgementNumber;
-    uint32_t payloadLength;//Can be 0 for heartbeat and initiation
-} __attribute__ ((packed)); //13 bytes
-*/
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,11 +58,23 @@ struct customHdr{
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 256
 
+#define HEARTBEAT 0
+#define INIT 1
+#define DATA 2
+struct customHdr{
+    uint8_t type; //heartbeat, new connection initiation, app data
+    uint32_t sequencNumber;
+    uint32_t acknowledgementNumber;
+    uint32_t payloadLength;//Can be 0 for heartbeat and initiation
+} __attribute__ ((packed)); //13 bytes
+
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
+void processReceivedHeader(char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
+int removeHeader(char *buffer);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -123,7 +127,7 @@ int main( int argc, char *argv[] ){
         if(returnValue == -1){
             error("poll Error\n");
         }else if(returnValue == 0){
-            printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
+            printf("Timeout occured! No data after %.3f seconds\n", TIMEOUT/1000.0f);
             //Send out hearbeat message
             numTimeouts++;
             sendHeartBeat(proxySockFD);
@@ -213,21 +217,24 @@ int main( int argc, char *argv[] ){
                 perror("Poll returned an error from local\n");
             }
 
+//---------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
 
-
-
-            //Check proxy events
+            //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
                 if(DEBUG){
                     printf("Skipping recieve to wait to send past data for proxy\n");
                 }
             }else{
-                //RECEIVE
+                //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
+                    printf("nBytesProxy = %d, sizeof(buffer) = %d, strlen(buffer) = %d\n", nBytesProxy,
+                        sizeof(bufProxy), strlen(bufProxy));
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
@@ -237,8 +244,8 @@ int main( int argc, char *argv[] ){
                         if(DEBUG){
                             printf("Just recieved %d bytes\n", nBytesProxy);
                         }
-                        sendToLocal = 1;
-                        isOOBLocal = 1;
+                        processReceivedHeader(bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal);
+                        
                     }
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
                     if(DEBUG){
@@ -255,10 +262,11 @@ int main( int argc, char *argv[] ){
                             printf("Just recieved %d bytes\n", nBytesProxy);
                         }
                         sendToLocal = 1;
+                        isOOBLocal = 0;
                     }
                 }
             }
-            //SEND
+            //SEND - NEED TO ADD HEADER
             if(sendToProxy){
                 if(pollFDs[PROXY_POLL].revents & POLLOUT){
                     if(isOOBProxy){
@@ -399,4 +407,46 @@ int sendall(int s, char *buf, int *len, int flags)
 void sendHeartBeat(int pSockFD){
     printf("Hearbeat not implemented!\n");
 
+}
+
+void processReceivedHeader(char *buffer, int *numTimeouts, int *sendTo, int *isOOB){
+    int type;
+    //type = removeHeader(buffer);
+    type = DATA;
+    if(type == HEARTBEAT){
+        if(DEBUG){
+            printf("Recieved a heartbeat\n");
+        }
+        *numTimeouts = 0;
+    }else if(type == INIT){
+        if(DEBUG){
+            printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+        }
+    }else if(type == DATA){
+        if(DEBUG){
+            printf("Received normal data\n");
+        }
+        *sendTo = 1;
+        *isOOB = 1;
+    }else{
+        perror("Received unknown type of header\n");
+    }
+}
+
+int removeHeader(char *buffer){
+    struct customHdr *cHdr;
+    int type;
+
+    cHdr = (struct customHdr *) buffer;
+
+    if(DEBUG){
+        printf("Still need to remove header\n");
+    }
+    type = cHdr->type;
+    if(DEBUG){
+        printf("Type was found out to be %d\n", type);
+    }
+    //Use memcpy to change packet
+
+    return type;
 }
