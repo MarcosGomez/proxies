@@ -75,7 +75,7 @@ int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
 void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
 int removeHeader(char **buffer, int *nBytes);
-int receiveProxyPacket(int *nBytes, int startingBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
+int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -233,18 +233,16 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
-                    int startBytes;
-                    startBytes = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
                     printf("About\n");
-                    if(receiveProxyPacket(&nBytesProxy, startBytes, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(&nBytesProxy, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    int startBytes;
-                    startBytes = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive out-of-band data
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive out-of-band data
                     printf("About\n");
-                    if(receiveProxyPacket(&nBytesProxy, proxySockFD, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }
@@ -354,7 +352,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
-    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
+    proxyAddr.sin_port = htons(TELNET_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
     if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
@@ -441,7 +439,7 @@ int removeHeader(char **buffer, int *nBytes){
     return type;
 }
 
-int receiveProxyPacket(int *nBytes, int startingBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
+int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
     // if(flag){
     //     //Then OOB
     //     if(DEBUG){
@@ -457,7 +455,6 @@ int receiveProxyPacket(int *nBytes, int startingBytes, int flag, char **buffer, 
     //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
     // }
 
-    *nBytes = startingBytes;
     if(*nBytes == -1){
         perror("recv error\n");
     }else if(*nBytes == 0){
