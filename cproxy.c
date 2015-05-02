@@ -75,7 +75,7 @@ int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
 void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
 int removeHeader(char **buffer, int *nBytes);
-int receiveProxyPacket(int *nBytes, int sockFD, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
+int receiveProxyPacket(int *nBytes, int startingBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -230,12 +230,20 @@ int main( int argc, char *argv[] ){
             }else{
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
-                    if(receiveProxyPacket(&nBytesProxy, proxySockFD, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(DEBUG){
+                        printf("receiving out-of-band data from proxy!!\n");
+                    }
+                    int startBytes;
+                    startBytes = recv(proxySockFD, bufProxy, sizeof(buffer), MSG_OOB); //Receive out-of-band data
+                    printf("About\n");
+                    if(receiveProxyPacket(&nBytesProxy, startBytes, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    printf("ProxySockFD = %d\n", proxySockFD);
+                    int startBytes;
+                    startBytes = recv(proxySockFD, bufProxy, sizeof(buffer), 0); //Receive out-of-band data
+                    printf("About\n");
                     if(receiveProxyPacket(&nBytesProxy, proxySockFD, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
@@ -433,23 +441,23 @@ int removeHeader(char **buffer, int *nBytes){
     return type;
 }
 
-int receiveProxyPacket(int *nBytes, int sockFD, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
-    if(flag){
-        //Then OOB
-        if(DEBUG){
-            printf("receiving out-of-band data from proxy!!\n");
-        }
-        *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, MSG_OOB); //Receive out-of-band data
-    }else{
-        //Normal
-        if(DEBUG){
-            printf("receiving normal data from proxy!!\n");
-        }
-        printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
-        *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
-    }
+int receiveProxyPacket(int *nBytes, int startingBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
+    // if(flag){
+    //     //Then OOB
+    //     if(DEBUG){
+    //         printf("receiving out-of-band data from proxy!!\n");
+    //     }
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, MSG_OOB); //Receive out-of-band data
+    // }else{
+    //     //Normal
+    //     if(DEBUG){
+    //         printf("receiving normal data from proxy!!\n");
+    //     }
+    //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
+    // }
 
-
+    *nBytes = startBytes;
     if(*nBytes == -1){
         perror("recv error\n");
     }else if(*nBytes == 0){
