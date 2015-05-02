@@ -235,6 +235,7 @@ int main( int argc, char *argv[] ){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                    printf("ProxySockFD = %d\n", proxySockFD);
                     if(receiveProxyPacket(&nBytesProxy, proxySockFD, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
@@ -444,6 +445,7 @@ int receiveProxyPacket(int *nBytes, int sockFD, int flag, char **buffer, int *nu
         if(DEBUG){
             printf("receiving normal data from proxy!!\n");
         }
+        printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
         *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
     }
 
