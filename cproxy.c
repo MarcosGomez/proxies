@@ -243,7 +243,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
-                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive out-of-band data
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); 
                     if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
@@ -435,9 +435,13 @@ void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *is
 int removeHeader(char **buffer, int *nBytes){
     struct customHdr *cHdr;
     int type;
-
+    if(DEBUG){
+        printf("starting to remove header\n");
+    }
     cHdr = (struct customHdr *) *buffer;
-
+    if(DEBUG){
+        printf("About to process header\n");
+    }
     //Process Header
     type = cHdr->type;
     if(DEBUG){
