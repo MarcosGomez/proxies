@@ -128,19 +128,19 @@ int main( int argc, char *argv[] ){
         if(returnValue == -1){
             error("poll Error\n");
         }else if(returnValue == 0){
-            printf("Timeout occured! No data after %.3f seconds\n", TIMEOUT/1000.0f);
-            //Send out hearbeat message
             numTimeouts++;
+            printf("Timeout number %d occured! No data after %.3f seconds\n", numTimeouts, TIMEOUT/1000.0f);
+            //Send out hearbeat message
             sendHeartBeat(proxySockFD);
             
-            if(numTimeouts >= 3){
-                if(DEBUG){
-                    printf("Lost connection, time to close failed socket\n");
-                }
-                close(proxySockFD);
-                printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
-                break;
-            }
+            // if(numTimeouts >= 3){
+            //     if(DEBUG){
+            //         printf("Lost connection, time to close failed socket\n");
+            //     }
+            //     close(proxySockFD);
+            //     printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
+            //     break;
+            // }
         }else{
             numTimeouts = 0;
             //Check local events
