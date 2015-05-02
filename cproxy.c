@@ -435,13 +435,10 @@ void processReceivedHeader(char *buffer, int *numTimeouts, int *sendTo, int *isO
 int removeHeader(char *buffer, int *nBytes){
     struct customHdr *cHdr;
     int type;
-    if(DEBUG){
-        printf("starting to remove header\n");
-    }
+    char tempBuf[MAX_BUFFER_SIZE];
+
     cHdr = (struct customHdr *) buffer;
-    if(DEBUG){
-        printf("About to process header\n");
-    }
+    
     //Process Header
     type = cHdr->type;
     if(DEBUG){
@@ -449,9 +446,10 @@ int removeHeader(char *buffer, int *nBytes){
     }
 
     //Remove header
-    // *buffer = *buffer + sizeof(struct customHdr);
-    // (*nBytes) -= sizeof(struct customHdr);
-    printf("Should crash now\n");
+    memcpy(tempBuf, buffer, *nBytes);
+    (*nBytes) -= sizeof(struct customHdr);
+    memcpy(buffer, tempBuf + sizeof(struct customHdr), *nBytes);
+    
     return type;
 }
 
