@@ -235,7 +235,7 @@ int main( int argc, char *argv[] ){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    if(receiveProxyPacket(&nBytesProxy, proxySockFD, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(&nBytesProxy, proxySockFD, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }
