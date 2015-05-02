@@ -6,6 +6,38 @@
 // 
 // Telnet into cproxy using "telnet localhost 5200"
 
+//Main Points
+//1) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
+//2) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
+//3) No data loss. Need something like sequence/ack number to retransmit missing data.
+//4) Sproxy can tell difference between new session or continuation of old. Should restart
+//   connection with telnet daemon if new.
+//5) Contruct custom header
+
+/*
+struct tcpheader {
+ uint16_t th_sport;
+ uint16_t th_dport;
+ uint32_t th_seq;
+ uint32_t th_ack;
+ unsigned char th_x2:4, th_off:4;
+ unsigned char th_flags;
+ unsigned short int th_win;
+ unsigned short int th_sum;
+ unsigned short int th_urp;
+} __attribute__ ((packed)); /* total tcp header length: 20 bytes (=160 bits) */
+
+/*
+#define HEARTBEAT 0
+#define INIT 1
+#define DATA 2
+struct customHdr{
+    uint8_t type; //heartbeat, new connection initiation, app data
+    uint32_t sequencNumber;
+    uint32_t acknowledgementNumber;
+    uint32_t payloadLength;//Can be 0 for heartbeat and initiation
+} __attribute__ ((packed)); //13 bytes
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,56 +52,6 @@
 #include <sys/poll.h>
 #include <netdb.h>
 #include <unistd.h> //close
-//int poll(struct pollfd *ufds, unsigned int nfds, int timeout);
- // struct pollfd {
- //         int    fd;       /* file descriptor */
- //         short  events;   /* events to look for */
- //         short  revents;  /* events returned */
- //     };
-// struct pollfd {
-//     int fd;         // the socket descriptor
-//     short events;   // bitmap of events we're interested in
-//     short revents;  // when poll() returns, bitmap of events that occurred
-// };
-
-// #include <netinet/in.h>
-
-// struct sockaddr_in {
-//     short            sin_family;   // e.g. AF_INET
-//     unsigned short   sin_port;     // e.g. htons(3490)
-//     struct in_addr   sin_addr;     // see struct in_addr, below
-//     char             sin_zero[8];  // zero this if you want to
-// };
-// struct sockaddr {
-//     unsigned short    sa_family;    // address family, AF_xxx
-//     char              sa_data[14];  // 14 bytes of protocol address
-// }; 
-
-// struct in_addr {
-//     unsigned long s_addr;  // load with inet_aton()
-// };
-
-
-// #include <sys/types.h>
-// #include <sys/socket.h>
-// #include <netdb.h>
-
-// int getaddrinfo(const char *node,     // e.g. "www.example.com" or IP
-//                 const char *service,  // e.g. "http" or port number
-//                 const struct addrinfo *hints,
-//                 struct addrinfo **res);
-
-// struct addrinfo {
-//     int              ai_flags;     // AI_PASSIVE, AI_CANONNAME, etc.
-//     int              ai_family;    // AF_INET, AF_INET6, AF_UNSPEC
-//     int              ai_socktype;  // SOCK_STREAM, SOCK_DGRAM
-//     int              ai_protocol;  // use 0 for "any"
-//     size_t           ai_addrlen;   // size of ai_addr in bytes
-//     struct sockaddr *ai_addr;      // struct sockaddr_in or _in6
-//     char            *ai_canonname; // full canonical hostname
-
-//     struct addrinfo *ai_next;      // linked list, next node
-// };
 
 
 #define DEBUG 1
@@ -87,6 +69,7 @@ void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
 int sendall(int s, char *buf, int *len, int flags);
+void sendHearBeat(int pSockFD);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -99,6 +82,8 @@ int main( int argc, char *argv[] ){
     int sendToProxy, sendToLocal; //booleans
     int isOOBProxy, isOOBLocal; //bool, is out-of-band
     int notSentProxy, notSentLocal; //bool
+
+    int numTimeouts;
     
     //Make sure IP of server is provided
     if(argc < 2){
@@ -117,7 +102,8 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].fd = proxySockFD;
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
-    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy = 0; //Initalize to false
+    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
+    numTimeouts = 0; //Initalize to false
     //Mainloop
     while(1){
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
@@ -125,7 +111,20 @@ int main( int argc, char *argv[] ){
             error("poll Error\n");
         }else if(returnValue == 0){
             printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
+            //Send out hearbeat message
+            numTimeouts++;
+            sendHeartBeat(proxySockFD);
+            
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                close(proxySockFD);
+                printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
+                break;
+            }
         }else{
+            numTimeouts = 0;
             //Check local events
             if(notSentLocal){
                 if(DEBUG){
@@ -141,7 +140,7 @@ int main( int argc, char *argv[] ){
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The local side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
@@ -236,7 +235,7 @@ int main( int argc, char *argv[] ){
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The proxy side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
@@ -350,7 +349,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
-    proxyAddr.sin_port = htons(OUTGOING_PORT);
+    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
     if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
@@ -382,4 +381,9 @@ int sendall(int s, char *buf, int *len, int flags)
     *len = total; // return number actually sent here
 
     return n==-1?-1:0; // return -1 on failure, 0 on success
-} 
+}
+
+void sendHearBeat(int pSockFD){
+    printf("Hearbeat not implemented!\n");
+
+}

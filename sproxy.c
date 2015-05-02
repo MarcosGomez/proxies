@@ -31,6 +31,7 @@ void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
 int sendall(int s, char *buf, int *len, int flags);
+void sendHearBeat(int pSockFD);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -64,6 +65,18 @@ int main( void ){
             error("poll Error\n");
         }else if(returnValue == 0){
             printf("Timeout occured! No data after %f seconds\n", TIMEOUT/1000.0f);
+            //Send out hearbeat message
+            numTimeouts++;
+            sendHeartBeat(proxySockFD);
+            
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                close(proxySockFD);
+                printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
+                break;
+            }
         }else{
             //Check proxy events
             if(notSentProxy){
@@ -80,7 +93,7 @@ int main( void ){
                     if(nBytesProxy == -1){
                         perror("recv error\n");
                     }else if(nBytesProxy == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The proxy side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
@@ -174,7 +187,7 @@ int main( void ){
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
-                        printf("The remote side closed the connection on you\n");
+                        printf("The local side closed the connection on you\n");
                         break;
                     }else{
                         if(DEBUG){
@@ -263,7 +276,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
 
     //Listen on port 6200 for incoming connection
     if(DEBUG){
-        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" if connecting directly)\n");
+        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
     }
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
@@ -322,4 +335,9 @@ int sendall(int s, char *buf, int *len, int flags)
     *len = total; // return number actually sent here
 
     return n==-1?-1:0; // return -1 on failure, 0 on success
-} 
+}
+
+void sendHearBeat(int pSockFD){
+    printf("Hearbeat not implemented!\n");
+
+}
