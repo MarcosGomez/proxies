@@ -137,7 +137,7 @@ int main( void ){
             //SEND - NEED TO ADD HEADER
             if(sendToProxy){
                 if(pollFDs[PROXY_POLL].revents & POLLOUT){
-                    if(isOOBProxy){
+                    //if(isOOBProxy){
                         // if(DEBUG){
                         //     printf("Sending out out-of-band data to proxy\n");
                         // }
@@ -147,7 +147,7 @@ int main( void ){
                         //     printf("Only sent %d bytes because of error!\n", nBytesLocal);
                         // }
                         // isOOBProxy = 0;
-                    }else{
+                    //}else{
                         if(DEBUG){
                             printf("Sending out data to proxy\n");
                         }
@@ -157,7 +157,7 @@ int main( void ){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
                         }
-                    }
+                    //}
                     sendToProxy = 0;
                     notSentProxy = 0;
                 }else{
