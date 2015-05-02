@@ -81,6 +81,9 @@ int main( void ){
                 break;
             }
         }else{
+            if(DEBUG){
+                printf("%d items in revents are enabled\n", returnValue);
+            }
             //Check proxy events
             if(notSentProxy){
                 if(DEBUG){
