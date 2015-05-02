@@ -466,4 +466,8 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 
     (*nBytes) += sizeof(struct customHdr); 
     memcpy(buffer, tempBuf, *nBytes);
+    if(DEBUG){
+        unsigned char *temp = (unsigned char*)buffer;
+        printf("Just added a header of type %d\n", *temp);
+    }
 }

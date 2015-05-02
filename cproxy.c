@@ -241,7 +241,7 @@ int main( int argc, char *argv[] ){
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
                     if(DEBUG){
-                        printf("receiving normal data from proxy!!\n");
+                        printf("receiving normal data from proxy\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive out-of-band data
                     if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
@@ -501,4 +501,8 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 
     (*nBytes) += sizeof(struct customHdr); 
     memcpy(buffer, tempBuf, *nBytes);
+    if(DEBUG){
+        unsigned char *temp = (unsigned char*)buffer;
+        printf("Just added a header of type %d\n", *temp);
+    }
 }
