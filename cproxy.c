@@ -25,7 +25,8 @@ struct tcpheader {
  unsigned short int th_win;
  unsigned short int th_sum;
  unsigned short int th_urp;
-} __attribute__ ((packed)); /* total tcp header length: 20 bytes (=160 bits) */
+} __attribute__ ((packed)); // total tcp header length: 20 bytes (=160 bits) 
+*/
 
 /*
 #define HEARTBEAT 0
@@ -69,7 +70,7 @@ void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
 int sendall(int s, char *buf, int *len, int flags);
-void sendHearBeat(int pSockFD);
+void sendHeartBeat(int pSockFD);
 
 //Using telnet localhost 5200 to connect here
 int main( int argc, char *argv[] ){
@@ -103,7 +104,7 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    numTimeouts = 0; //Initalize to false
+    = numTimeouts = 0; //Initalize to false
     //Mainloop
     while(1){
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
@@ -383,7 +384,7 @@ int sendall(int s, char *buf, int *len, int flags)
     return n==-1?-1:0; // return -1 on failure, 0 on success
 }
 
-void sendHearBeat(int pSockFD){
+void sendHeartBeat(int pSockFD){
     printf("Hearbeat not implemented!\n");
 
 }

@@ -31,7 +31,7 @@ void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
 int sendall(int s, char *buf, int *len, int flags);
-void sendHearBeat(int pSockFD);
+void sendHeartBeat(int pSockFD);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -43,6 +43,8 @@ int main( void ){
     int sendToProxy, sendToLocal; //booleans
     int isOOBProxy, isOOBLocal; //bool, is out-of-band
     int notSentProxy, notSentLocal; //bool
+
+    int numTimeouts;
 
     printf("Starting up the server...\n");
 
@@ -57,7 +59,8 @@ int main( void ){
     pollFDs[PROXY_POLL].fd = proxySockFD;
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
-    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy = 0; //Initalize to false
+    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
+    = numTimeouts = 0; //Initalize to false
     //Mainloop
     while(1){
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
@@ -337,7 +340,7 @@ int sendall(int s, char *buf, int *len, int flags)
     return n==-1?-1:0; // return -1 on failure, 0 on success
 }
 
-void sendHearBeat(int pSockFD){
+void sendHeartBeat(int pSockFD){
     printf("Hearbeat not implemented!\n");
 
 }
