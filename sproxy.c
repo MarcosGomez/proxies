@@ -32,8 +32,8 @@
 #define DATA 2
 struct customHdr{
     uint8_t type; //heartbeat, new connection initiation, app data
-    uint32_t sequencNumber;
-    uint32_t acknowledgementNumber;
+    uint32_t seqNum;
+    uint32_t ackNum;
     uint32_t payloadLength;//Can be 0 for heartbeat and initiation
 } __attribute__ ((packed)); //13 bytes
 
@@ -45,6 +45,7 @@ void sendHeartBeat(int pSockFD);
 void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
 int removeHeader(char **buffer, int *nBytes);
 int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
+void addHeader(void *buffer, int *nBytes, uint8_t type);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -95,7 +96,6 @@ int main( void ){
             numTimeouts++;
             printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
             //Send out hearbeat message
-            
             sendHeartBeat(proxySockFD);
             
             // if(numTimeouts >= 3){
@@ -141,6 +141,7 @@ int main( void ){
                         if(DEBUG){
                             printf("Sending out out-of-band data to proxy\n");
                         }
+                        addHeader(bufLocal, &nBytesLocal, DATA);
                         if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
@@ -151,6 +152,7 @@ int main( void ){
                             printf("Sending out data to proxy\n");
                         }
                         //Normal
+                        addHeader(bufLocal, &nBytesLocal, DATA);
                         if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
@@ -354,14 +356,22 @@ int sendall(int s, char *buf, int *len, int flags)
 }
 
 void sendHeartBeat(int pSockFD){
-    printf("Hearbeat not implemented!\n");
-
+    if(DEBUG){
+        printf("Sending heartbeat\n");
+    }
+    char bufHeart[MAX_BUFFER_SIZE];
+    int nBytesHeart = 0;
+    addHeader(bufHeart, &nBytesHeart, HEARTBEAT);
+    if(sendall(pSockFD, bufHeart, &nBytesHeart, 0) == -1){
+        perror("Error with send\n");
+        printf("Only sent %d bytes because of error!\n", nBytesHeart);
+    }
 }
 
 void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
     int type;
-    //type = removeHeader(buffer, nBytes);
-    type = DATA;
+    type = removeHeader(buffer, nBytes);
+    //type = DATA;
     if(type == HEARTBEAT){
         if(DEBUG){
             printf("Recieved a heartbeat\n");
@@ -435,4 +445,25 @@ int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, i
     }
     
     return 0;
+}
+
+void addHeader(void *buffer, int *nBytes, uint8_t type){
+    struct customHdr cHdr;
+    char tempBuf[MAX_BUFFER_SIZE];
+
+    //Set header values
+    cHdr.type = type;
+    cHdr.seqNum = 0;
+    cHdr.ackNum = 0;
+    cHdr.payloadLength = *nBytes;
+
+    //Copy header to buffer
+    if(*nBytes + sizeof(struct customHdr) > MAX_BUFFER_SIZE){
+        printf("ERROR: BUFFER OVERFLOW. YOU NEED TO DYNAMICALLY CHANGE BUFFER SIZE\n");
+    }
+    memcpy(tempBuf, &cHdr, sizeof(struct customHdr));
+    memcpy(tempBuf + sizeof(struct customHdr), buffer, *nBytes);
+
+    (*nBytes) += sizeof(struct customHdr); 
+    memcpy(buffer, tempBuf, *nBytes);
 }
