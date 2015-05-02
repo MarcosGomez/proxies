@@ -73,9 +73,9 @@ void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
-void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
-int removeHeader(char **buffer, int *nBytes);
-int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
+void processReceivedHeader(char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
+int removeHeader(char *buffer, int *nBytes);
+int receiveProxyPacket(int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
 void addHeader(void *buffer, int *nBytes, uint8_t type);
 
 //Using telnet localhost 5200 to connect here
@@ -235,7 +235,7 @@ int main( int argc, char *argv[] ){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
-                    if(receiveProxyPacket(&nBytesProxy, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(&nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }  
@@ -244,7 +244,7 @@ int main( int argc, char *argv[] ){
                         printf("receiving normal data from proxy\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); 
-                    if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(&nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }
@@ -403,7 +403,7 @@ void sendHeartBeat(int pSockFD){
     }
 }
 
-void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
+void processReceivedHeader(char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
     int type;
     type = removeHeader(buffer, nBytes);
     //type = DATA;
@@ -432,13 +432,13 @@ void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *is
     }
 }
 
-int removeHeader(char **buffer, int *nBytes){
+int removeHeader(char *buffer, int *nBytes){
     struct customHdr *cHdr;
     int type;
     if(DEBUG){
         printf("starting to remove header\n");
     }
-    cHdr = (struct customHdr *) *buffer;
+    cHdr = (struct customHdr *) buffer;
     if(DEBUG){
         printf("About to process header\n");
     }
@@ -449,13 +449,13 @@ int removeHeader(char **buffer, int *nBytes){
     }
 
     //Remove header
-    *buffer = *buffer + sizeof(struct customHdr);
-    (*nBytes) -= sizeof(struct customHdr);
-
+    // *buffer = *buffer + sizeof(struct customHdr);
+    // (*nBytes) -= sizeof(struct customHdr);
+    printf("Should crash now\n");
     return type;
 }
 
-int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
+int receiveProxyPacket(int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB){
     // if(flag){
     //     //Then OOB
     //     if(DEBUG){
