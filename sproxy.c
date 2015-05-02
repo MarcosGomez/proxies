@@ -27,11 +27,24 @@
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 256
 
+#define HEARTBEAT 0
+#define INIT 1
+#define DATA 2
+struct customHdr{
+    uint8_t type; //heartbeat, new connection initiation, app data
+    uint32_t sequencNumber;
+    uint32_t acknowledgementNumber;
+    uint32_t payloadLength;//Can be 0 for heartbeat and initiation
+} __attribute__ ((packed)); //13 bytes
+
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
+void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
+int removeHeader(char **buffer, int *nBytes);
+int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -80,7 +93,7 @@ int main( void ){
             error("poll Error\n");
         }else if(returnValue == 0){
             numTimeouts++;
-            printf("Timeout number %d occured! No data after %.3f seconds\n", numTimeouts, TIMEOUT/1000.0f);
+            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
             //Send out hearbeat message
             
             sendHeartBeat(proxySockFD);
@@ -106,34 +119,19 @@ int main( void ){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
-                    if(nBytesProxy == -1){
-                        perror("recv error\n");
-                    }else if(nBytesProxy == 0){
-                        printf("The proxy side closed the connection on you\n");
+                    if(receiveProxyPacket(&nBytesProxy, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                     == -1){
                         break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesProxy);
-                        }
-                        sendToLocal = 1;
-                        isOOBLocal = 1;
-                    }
+                    }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive normal data
-                    if(nBytesProxy == -1){
-                        perror("recv error\n");
-                    }else if(nBytesProxy == 0){
-                        printf("The proxy side closed the connection on you\n");
+                    if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                     == -1){
                         break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesProxy);
-                        }
-                        sendToLocal = 1;
-                    }
+                    }  
                 }
             }
             //SEND - NEED TO ADD HEADER
@@ -358,4 +356,83 @@ int sendall(int s, char *buf, int *len, int flags)
 void sendHeartBeat(int pSockFD){
     printf("Hearbeat not implemented!\n");
 
+}
+
+void processReceivedHeader(char **buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
+    int type;
+    //type = removeHeader(buffer, nBytes);
+    type = DATA;
+    if(type == HEARTBEAT){
+        if(DEBUG){
+            printf("Recieved a heartbeat\n");
+        }
+        *numTimeouts = 0;
+    }else if(type == INIT){
+        if(DEBUG){
+            printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+        }
+    }else if(type == DATA){
+        if(DEBUG){
+            printf("Received normal data\n");
+        }
+        *sendTo = 1;
+        if(flag){
+            *isOOB = 1;
+        }else{
+            *isOOB = 0;
+        }
+        
+    }else{
+        perror("Received unknown type of header\n");
+    }
+}
+
+int removeHeader(char **buffer, int *nBytes){
+    struct customHdr *cHdr;
+    int type;
+
+    cHdr = (struct customHdr *) *buffer;
+
+    //Process Header
+    type = cHdr->type;
+    if(DEBUG){
+        printf("Type was found out to be %d\n", type);
+    }
+
+    //Remove header
+    *buffer = *buffer + sizeof(struct customHdr);
+    (*nBytes) -= sizeof(struct customHdr);
+
+    return type;
+}
+
+int receiveProxyPacket(int *nBytes, int flag, char **buffer, int *numTimeouts, int *sendTo, int *isOOB){
+    // if(flag){
+    //     //Then OOB
+    //     if(DEBUG){
+    //         printf("receiving out-of-band data from proxy!!\n");
+    //     }
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, MSG_OOB); //Receive out-of-band data
+    // }else{
+    //     //Normal
+    //     if(DEBUG){
+    //         printf("receiving normal data from proxy!!\n");
+    //     }
+    //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
+    // }
+
+    if(*nBytes == -1){
+        perror("recv error\n");
+    }else if(*nBytes == 0){
+        printf("The proxy side closed the connection on you\n");
+        return -1;
+    }else{
+        if(DEBUG){
+            printf("Just recieved %d bytes\n", *nBytes);
+        }
+        processReceivedHeader(buffer, numTimeouts, sendTo, isOOB, nBytes, flag);                  
+    }
+    
+    return 0;
 }

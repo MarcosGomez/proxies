@@ -129,7 +129,7 @@ int main( int argc, char *argv[] ){
             error("poll Error\n");
         }else if(returnValue == 0){
             numTimeouts++;
-            printf("Timeout number %d occured! No data after %.3f seconds\n", numTimeouts, TIMEOUT/1000.0f);
+            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
             //Send out hearbeat message
             sendHeartBeat(proxySockFD);
             
@@ -234,14 +234,15 @@ int main( int argc, char *argv[] ){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
-                    printf("About\n");
                     if(receiveProxyPacket(&nBytesProxy, 1, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                    if(DEBUG){
+                        printf("receiving normal data from proxy!!\n");
+                    }
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); //Receive out-of-band data
-                    printf("About\n");
                     if(receiveProxyPacket(&nBytesProxy, 0, (char **)&bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
