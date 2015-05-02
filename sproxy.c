@@ -25,7 +25,7 @@
 #define PROXY_POLL 1
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
-#define MAX_BUFFER_SIZE 256
+#define MAX_BUFFER_SIZE 4096
 
 #define HEARTBEAT 0
 #define INIT 1
