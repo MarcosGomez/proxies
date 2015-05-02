@@ -442,7 +442,7 @@ int receiveProxyPacket(int *nBytes, int sockFD, int flag, char **buffer, int *nu
     }else{
         //Normal
         if(DEBUG){
-            printf("receiving out-of-band data from proxy!!\n");
+            printf("receiving normal data from proxy!!\n");
         }
         *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
     }
