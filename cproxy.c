@@ -352,7 +352,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
-    proxyAddr.sin_port = htons(TELNET_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
+    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
     if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
