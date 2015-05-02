@@ -138,15 +138,15 @@ int main( void ){
             if(sendToProxy){
                 if(pollFDs[PROXY_POLL].revents & POLLOUT){
                     if(isOOBProxy){
-                        if(DEBUG){
-                            printf("Sending out out-of-band data to proxy\n");
-                        }
-                        addHeader(bufLocal, &nBytesLocal, DATA);
-                        if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
-                            perror("Error with send\n");
-                            printf("Only sent %d bytes because of error!\n", nBytesLocal);
-                        }
-                        isOOBProxy = 0;
+                        // if(DEBUG){
+                        //     printf("Sending out out-of-band data to proxy\n");
+                        // }
+                        // addHeader(bufLocal, &nBytesLocal, DATA);
+                        // if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
+                        //     perror("Error with send\n");
+                        //     printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                        // }
+                        // isOOBProxy = 0;
                     }else{
                         if(DEBUG){
                             printf("Sending out data to proxy\n");
