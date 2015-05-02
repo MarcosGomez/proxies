@@ -8,11 +8,12 @@
 
 //Main Points
 //1) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
+
 //2) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
 //3) No data loss. Need something like sequence/ack number to retransmit missing data.
 //4) Sproxy can tell difference between new session or continuation of old. Should restart
 //   connection with telnet daemon if new.
-//5) Contruct custom header
+
 
 /*
 struct tcpheader {
@@ -115,6 +116,13 @@ int main( int argc, char *argv[] ){
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
     = numTimeouts = 0; //Initalize to false
+    // for(;;){
+    //     //Main
+    //     //Try to establish new socket with sproxy. should work when new eth1 is added
+    //     while(1){
+
+    //     }
+    // }
     //Mainloop
     while(1){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
@@ -135,17 +143,17 @@ int main( int argc, char *argv[] ){
         }else if(returnValue == 0){
             numTimeouts++;
             printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            //Send out hearbeat message
-            sendHeartBeat(proxySockFD);
-            
-            // if(numTimeouts >= 3){
-            //     if(DEBUG){
-            //         printf("Lost connection, time to close failed socket\n");
-            //     }
-            //     close(proxySockFD);
-            //     printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
-            //     break;
-            // }
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                //close(proxySockFD);
+                printf("Should have closed the proxy connection by now\n");
+                //break;
+            }else{
+                //Send out hearbeat message
+                sendHeartBeat(proxySockFD);
+            }
         }else{
             numTimeouts = 0;
             //Check local events

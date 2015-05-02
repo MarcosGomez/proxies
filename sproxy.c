@@ -98,17 +98,19 @@ int main( void ){
         }else if(returnValue == 0){
             numTimeouts++;
             printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            //Send out hearbeat message
-            sendHeartBeat(proxySockFD);
             
-            // if(numTimeouts >= 3){
-            //     if(DEBUG){
-            //         printf("Lost connection, time to close failed socket\n");
-            //     }
-            //     close(proxySockFD);
-            //     printf("PROGRAM SHOULD KEEP RUNNING. TODO\n");
-            //     break;
-            // }
+            
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                //close(proxySockFD);
+                printf("Should have closed the proxy connection by now\n");
+                //break;
+            }else{
+                //Send out hearbeat message
+                sendHeartBeat(proxySockFD);
+            }
         }else{
             //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
