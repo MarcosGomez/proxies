@@ -586,12 +586,12 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         }
     }
 
-    int oldfl;
-    oldfl = fcntl(proxySockFD, F_GETFL);
-    if (oldfl == -1) {
-        perror("Error trying to block proxySockFD\n");
-    }
-    fcntl(proxySockFD, F_SETFL, oldfl & ~O_NONBLOCK);
+    // int oldfl;
+    // oldfl = fcntl(proxySockFD, F_GETFL);
+    // if (oldfl == -1) {
+    //     perror("Error trying to block proxySockFD\n");
+    // }
+    // fcntl(proxySockFD, F_SETFL, oldfl & ~O_NONBLOCK);
     if(DEBUG){
         printf("Now connected to server side\n");
     }
