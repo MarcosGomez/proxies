@@ -81,6 +81,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
 int removeHeader(char *buffer, int *nBytes);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
 void addHeader(void *buffer, int *nBytes, uint8_t type);
+void reconnectToProxy(int *proxySock, char *serverEth1IPAddress);
 
 
 //Using telnet localhost 5200 to connect here
@@ -101,14 +102,14 @@ int main( int argc, char *argv[] ){
     if(argc < 2){
         usage(argv);
     }
-    for(;;){
+    
     printf("Starting up the client...\n");
     //Set up sockets
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
-
+    for(;;){
     pollFDs[LOCAL_POLL].fd = localSockFD;
     pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
@@ -295,9 +296,12 @@ int main( int argc, char *argv[] ){
     }
     //Close sockets
     close(proxySockFD);
+    //New
+    reconnectToProxy(&proxySockFD, argv[1]);
+    
+    }//End for(;;)
     close(localSockFD);
     close(listenSockFD);
-    }
     if(DEBUG){
         printf("cproxy is finished\n");
     }
@@ -532,4 +536,32 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
         unsigned char *temp = (unsigned char*)buffer;
         printf("Just added a header of type %d\n", *temp);
     }
+}
+
+void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
+    int proxySockFD;
+    struct sockaddr_in proxyAddr;
+    //Make a TCP connection to server port 6200(connect to sproxy)
+    if(DEBUG){
+        printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
+    }
+    proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(proxySockFD < 0){
+        error("Error opening socket\n");
+    }
+
+    proxyAddr.sin_family = AF_INET;
+    proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
+    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
+    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+
+    if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+        error("Error connecting\n");
+    }
+    if(DEBUG){
+        printf("Now connected to server side\n");
+    }
+
+    //Assign all file descriptors
+    *proxySock = proxySockFD;
 }
