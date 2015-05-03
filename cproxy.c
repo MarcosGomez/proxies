@@ -331,6 +331,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     struct sockaddr_in localAddr/*, proxyAddr*/;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
+    int option = 1;
 
     listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(listenSockFD < 0){
