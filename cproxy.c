@@ -559,7 +559,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     int proxySockFD;
     struct sockaddr_in proxyAddr;
-    //struct pollfd pollFD;
+    struct pollfd pollFD;
     int option  = 1;
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
@@ -582,15 +582,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
 
-    // pollFD.fd = proxySockFD;
-    // pollFD.events = POLLOUT;
-    // int rv;
-    // for( rv = 0; rv <= 0; ){
-    //     if(DEBUG){
-    //         printf("Checking if able to send\n");
-    //     }
-    //     rv = poll(&pollFD, 1, TIMEOUT);
-    // }
+    
     printf("Now trying to attempting to connect to server\n");
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
     
@@ -600,6 +592,17 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         if( rv == -1 ){
             perror("Error connecting\n");
         }
+        //Wait one sec
+        pollFD.fd = proxySockFD;
+        pollFD.events = POLLIN;
+        //int i;
+        poll(&pollFD, 1, TIMEOUT);
+        // for( i = 0; i <= 0; ){
+        //     if(DEBUG){
+        //         printf("Checking if able to send\n");
+        //     }
+        //     i = 
+        // }
     }
 
     // int oldfl;
