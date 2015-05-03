@@ -46,6 +46,7 @@ struct tcpheader {
 #include <sys/poll.h>
 #include <netdb.h>
 #include <unistd.h> //close
+#include <fcntl.h>
 
 
 #define DEBUG 1
@@ -542,7 +543,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     int proxySockFD;
     struct sockaddr_in proxyAddr;
-    struct pollfd pollFD;
+    //struct pollfd pollFD;
     int option  = 1;
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
@@ -565,20 +566,24 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
 
-    pollFD.fd = proxySockFD;
-    pollFD.events = POLLOUT;
+    // pollFD.fd = proxySockFD;
+    // pollFD.events = POLLOUT;
+    // int rv;
+    // for( rv = 0; rv <= 0; ){
+    //     if(DEBUG){
+    //         printf("Checking if able to send\n");
+    //     }
+    //     rv = poll(&pollFD, 1, TIMEOUT);
+    // }
+    fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
     int rv;
-    for( rv = 0; rv <= 0; ){
-        if(DEBUG){
-            printf("Checking if able to send\n");
+    for(rv = -1; rv < 0; ){
+        rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
+        if( rv == -1){
+            error("Error connecting\n");
         }
-        rv = poll(&pollFD, 1, TIMEOUT);
     }
     
-
-    if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-        error("Error connecting\n");
-    }
     if(DEBUG){
         printf("Now connected to server side\n");
     }
