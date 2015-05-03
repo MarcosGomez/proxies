@@ -319,8 +319,8 @@ void error(char *msg){
 }
 
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress){
-    int localSockFD, proxySockFD, listenSockFD;
-    struct sockaddr_in localAddr, proxyAddr;
+    int localSockFD,/* proxySockFD,*/ listenSockFD;
+    struct sockaddr_in localAddr/*, proxyAddr*/;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
 
@@ -357,29 +357,30 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
         printf("Accepted a connection\n");
     }
     //Make a TCP connection to server port 6200(connect to sproxy)
-    if(DEBUG){
-        printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
-    }
-    proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
-    if(proxySockFD < 0){
-        error("Error opening socket\n");
-    }
+    reconnectToProxy(proxySock, serverEth1IPAddress);
+    // if(DEBUG){
+    //     printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
+    // }
+    // proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
+    // if(proxySockFD < 0){
+    //     error("Error opening socket\n");
+    // }
 
-    proxyAddr.sin_family = AF_INET;
-    proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
-    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
-    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+    // proxyAddr.sin_family = AF_INET;
+    // proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
+    // proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
+    // memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
-    if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-        error("Error connecting\n");
-    }
-    if(DEBUG){
-        printf("Now connected to server side\n");
-    }
+    // if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+    //     error("Error connecting\n");
+    // }
+    // if(DEBUG){
+    //     printf("Now connected to server side\n");
+    // }
 
     //Assign all file descriptors
     *localSock = localSockFD;
-    *proxySock = proxySockFD;
+    //*proxySock = proxySockFD;
     *listenSock = listenSockFD;
 }
 

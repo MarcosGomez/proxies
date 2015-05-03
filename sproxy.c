@@ -280,44 +280,44 @@ void error(char *msg){
 
 
 void setUpConnections(int *localSock, int *proxySock, int *listenSock){
-    int localSockFD, proxySockFD, listenSockFD;
-    struct sockaddr_in localAddr, proxyAddr;
-    struct sockaddr_storage connectingAddr;
-    socklen_t addrLen;
+    int localSockFD/*, proxySockFD, listenSockFD*/;
+    struct sockaddr_in localAddr/*, proxyAddr*/;
+    //struct sockaddr_storage connectingAddr;
+    //socklen_t addrLen;
     
-
-    listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
-    if(listenSockFD < 0){
-        error("Error opening socket\n");
-    }
+    reconnectToProxy(listenSock, proxySock);
+    // listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
+    // if(listenSockFD < 0){
+    //     error("Error opening socket\n");
+    // }
     
-    proxyAddr.sin_family = AF_INET;
-    proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    proxyAddr.sin_port = htons(INCOMING_PORT);
-    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+    // proxyAddr.sin_family = AF_INET;
+    // proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // proxyAddr.sin_port = htons(INCOMING_PORT);
+    // memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
-    if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-        error("Error on binding\n");
-    }
+    // if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+    //     error("Error on binding\n");
+    // }
 
-    //Listen on port 6200 for incoming connection
-    if(DEBUG){
-        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
-    }
-    if(listen(listenSockFD, BACKLOG) < 0){
-        error("Error when listening\n");
-    }
+    // //Listen on port 6200 for incoming connection
+    // if(DEBUG){
+    //     printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
+    // }
+    // if(listen(listenSockFD, BACKLOG) < 0){
+    //     error("Error when listening\n");
+    // }
 
-    //Accept the connection from telnet/cproxy
-    addrLen = sizeof(connectingAddr);
-    proxySockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
-    if(proxySockFD < 0){
-        error("Error accepting connection\n");
-    }
+    // //Accept the connection from telnet/cproxy
+    // addrLen = sizeof(connectingAddr);
+    // proxySockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
+    // if(proxySockFD < 0){
+    //     error("Error accepting connection\n");
+    // }
 
-    if(DEBUG){
-        printf("Accepted a connection\n");
-    }
+    // if(DEBUG){
+    //     printf("Accepted a connection\n");
+    // }
     //Make a TCP connection to localhost(127.0.0.1)port 23 (Where telnet daemon is listening on)
     if(DEBUG){
         printf("Now trying to connect to telnet on server\n");
@@ -341,8 +341,8 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
 
     //Assign all file descriptors
     *localSock = localSockFD;
-    *proxySock = proxySockFD;
-    *listenSock = listenSockFD;
+    //*proxySock = proxySockFD;
+    //*listenSock = listenSockFD;
 }
 
 int sendall(int s, char *buf, int *len, int flags)
