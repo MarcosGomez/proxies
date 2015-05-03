@@ -122,7 +122,7 @@ int main( int argc, char *argv[] ){
     = numTimeouts = 0; //Initalize to false
 
     //Mainloop
-    while(1){
+    while(!closeSession){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
         if(sendToLocal){
             pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
