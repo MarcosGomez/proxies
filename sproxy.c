@@ -128,6 +128,7 @@ int main( void ){
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
+                        closeSession = 1;
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
@@ -137,6 +138,7 @@ int main( void ){
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); //Receive normal data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
+                        closeSession = 1;
                         break;
                     }  
                 }
