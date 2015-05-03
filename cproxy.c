@@ -164,7 +164,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving out-of-band data from local!!\n");
                     }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), MSG_OOB); //Receive out-of-band data
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
@@ -181,7 +181,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving normal data from local\n");
                     }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal), 0); //Receive normal data
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
@@ -243,7 +243,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
-                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), MSG_OOB); //Receive out-of-band data
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
@@ -252,7 +252,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
-                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy), 0); 
+                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         break;
@@ -490,14 +490,14 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
     //     if(DEBUG){
     //         printf("receiving out-of-band data from proxy!!\n");
     //     }
-    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, MSG_OOB); //Receive out-of-band data
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
     // }else{
     //     //Normal
     //     if(DEBUG){
     //         printf("receiving normal data from proxy!!\n");
     //     }
     //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
-    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE, 0); //Receive out-of-band data
+    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     // }
 
     if(*nBytes == -1){
@@ -576,11 +576,12 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     //     rv = poll(&pollFD, 1, TIMEOUT);
     // }
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
+    printf("Now trying to attempting to connect to server\n");
     int rv;
     for(rv = -1; rv < 0; ){
         rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
-        if( rv == -1){
-            perror("Error connecting\n");
+        if( rv == -1 && DEBUG){
+            printf("Error connecting\n");
         }
     }
     
