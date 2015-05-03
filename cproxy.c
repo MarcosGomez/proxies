@@ -292,6 +292,7 @@ int main( int argc, char *argv[] ){
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
             pollFDs[PROXY_POLL].revents & POLLNVAL ){
                 perror("Poll returned an ERROR from proxy\n");
+
             }
         }
     }
@@ -584,7 +585,13 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
             perror("Error connecting\n");
         }
     }
-    
+
+    int oldfl;
+    oldfl = fcntl(proxySockFD, F_GETFL);
+    if (oldfl == -1) {
+        perror("Error trying to block proxySockFD\n");
+    }
+    fcntl(proxySockFD, F_SETFL, oldfl & ~O_NONBLOCK);
     if(DEBUG){
         printf("Now connected to server side\n");
     }
