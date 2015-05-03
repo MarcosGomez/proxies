@@ -542,6 +542,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     int proxySockFD;
     struct sockaddr_in proxyAddr;
+    struct pollfd pollFD;
     int option  = 1;
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
@@ -562,6 +563,17 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
     proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+
+
+    pollFD.fd = proxySockFD;
+    pollFD.events = POLLOUT;
+    for(int rv = 0; rv <= 0; ){
+        if(DEBUG){
+            printf("Checking if able to send\n");
+        }
+        rv = poll(&pollFD, 1, TIMEOUT);
+    }
+    
 
     if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
         error("Error connecting\n");
