@@ -509,27 +509,27 @@ void reconnectToProxy(int *listenSock, int *proxySock){
         printf("Now trying to reconnect to listen and proxy socket\n");
     }
 
-    listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
-    if(listenSockFD < 0){
-        error("Error opening socket\n");
-    }
+    // listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
+    // if(listenSockFD < 0){
+    //     error("Error opening socket\n");
+    // }
     
-    proxyAddr.sin_family = AF_INET;
-    proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    proxyAddr.sin_port = htons(INCOMING_PORT);
-    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+    // proxyAddr.sin_family = AF_INET;
+    // proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // proxyAddr.sin_port = htons(INCOMING_PORT);
+    // memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
-    if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-        error("Error on binding\n");
-    }
+    // if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+    //     error("Error on binding\n");
+    // }
 
-    //Listen on port 6200 for incoming connection
-    if(DEBUG){
-        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
-    }
-    if(listen(listenSockFD, BACKLOG) < 0){
-        error("Error when listening\n");
-    }
+    // //Listen on port 6200 for incoming connection
+    // if(DEBUG){
+    //     printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
+    // }
+    // if(listen(listenSockFD, BACKLOG) < 0){
+    //     error("Error when listening\n");
+    // }
 
     //Accept the connection from telnet/cproxy
     addrLen = sizeof(connectingAddr);
