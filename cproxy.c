@@ -59,6 +59,7 @@ struct tcpheader {
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 4096
+#define WAITTIME 10000
 
 #define HEARTBEAT 0
 #define INIT 1
@@ -587,6 +588,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
     
     int rv;
+    int i = 0;
     for(rv = -1; rv < 0; ){
         rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
         if( rv == -1 ){
@@ -596,7 +598,11 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         pollFD.fd = proxySockFD;
         pollFD.events = POLLIN;
         //int i;
-        poll(&pollFD, 1, TIMEOUT);
+        poll(&pollFD, 1, WAITTIME);
+        i += WAITTIME/1000;
+        if(DEBUG){
+            printf("Has been trying to reconnect for %d seconds\n", i);
+        }
         // for( i = 0; i <= 0; ){
         //     if(DEBUG){
         //         printf("Checking if able to send\n");
