@@ -336,6 +336,12 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     if(listenSockFD < 0){
         error("Error opening socket\n");
     }
+    if(setsockopt(listenSockFD,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0)
+    {
+        printf("setsockopt failed\n");
+        close(listenSockFD);
+        exit(2);
+    } 
     
     localAddr.sin_family = AF_INET;
     localAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
