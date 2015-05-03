@@ -567,7 +567,8 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
 
     pollFD.fd = proxySockFD;
     pollFD.events = POLLOUT;
-    for(int rv = 0; rv <= 0; ){
+    int rv;
+    for( rv = 0; rv <= 0; ){
         if(DEBUG){
             printf("Checking if able to send\n");
         }
