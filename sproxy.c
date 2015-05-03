@@ -505,6 +505,8 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     struct sockaddr_in proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
+    int option = 1;
+
     if(DEBUG){
         printf("Now trying to reconnect to listen and proxy socket\n");
     }
@@ -513,6 +515,12 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     if(listenSockFD < 0){
         error("Error opening socket\n");
     }
+    if(setsockopt(listenSockFD,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0)
+    {
+        printf("setsockopt failed\n");
+        close(listenSockFD);
+        exit(2);
+    }   
     
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -529,6 +537,10 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     }
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
+    }
+
+    if(DEBUG){
+        printf("Now trying to accept connection\n");
     }
 
     //Accept the connection from telnet/cproxy

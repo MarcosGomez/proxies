@@ -541,6 +541,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     int proxySockFD;
     struct sockaddr_in proxyAddr;
+    int option  = 1;
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
         printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
@@ -549,6 +550,12 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     if(proxySockFD < 0){
         error("Error opening socket\n");
     }
+    if(setsockopt(proxySockFD,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0)
+    {
+        printf("setsockopt failed\n");
+        close(proxySockFD);
+        exit(2);
+    }   
 
     proxyAddr.sin_family = AF_INET;
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
