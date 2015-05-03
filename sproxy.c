@@ -505,7 +505,9 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     struct sockaddr_in proxyAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
-    
+    if(DEBUG){
+        printf("Now trying to reconnect to listen and proxy socket\n");
+    }
 
     listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(listenSockFD < 0){
