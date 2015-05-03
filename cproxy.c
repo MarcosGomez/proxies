@@ -96,6 +96,7 @@ int main( int argc, char *argv[] ){
     int sendToProxy, sendToLocal; //booleans
     int isOOBProxy, isOOBLocal; //bool, is out-of-band
     int notSentProxy, notSentLocal; //bool
+    int closeSession = 0;
 
     int numTimeouts;
     
@@ -144,7 +145,6 @@ int main( int argc, char *argv[] ){
                 if(DEBUG){
                     printf("Lost connection, time to close failed socket\n");
                 }
-                //close(proxySockFD);
                 printf("Should have closed the proxy connection by now\n");
                 break;
             }else{
@@ -169,6 +169,7 @@ int main( int argc, char *argv[] ){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
                         printf("The local side closed the connection on you\n");
+                        closeSession = 1;
                         break;
                     }else{
                         if(DEBUG){
@@ -298,8 +299,13 @@ int main( int argc, char *argv[] ){
     }
     //Close sockets
     close(proxySockFD);
-    //New
-    reconnectToProxy(&proxySockFD, argv[1]);
+    if(closeSession){
+        break;
+    }else{
+        //New
+        reconnectToProxy(&proxySockFD, argv[1]);
+    }
+    
     
     }//End for(;;)
     close(localSockFD);
