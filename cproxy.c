@@ -101,6 +101,7 @@ int main( int argc, char *argv[] ){
     if(argc < 2){
         usage(argv);
     }
+    for(;;){
     printf("Starting up the client...\n");
     //Set up sockets
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
@@ -116,13 +117,7 @@ int main( int argc, char *argv[] ){
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
     = numTimeouts = 0; //Initalize to false
-    // for(;;){
-    //     //Main
-    //     //Try to establish new socket with sproxy. should work when new eth1 is added
-    //     while(1){
 
-    //     }
-    // }
     //Mainloop
     while(1){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
@@ -149,7 +144,7 @@ int main( int argc, char *argv[] ){
                 }
                 //close(proxySockFD);
                 printf("Should have closed the proxy connection by now\n");
-                //break;
+                break;
             }else{
                 //Send out hearbeat message
                 sendHeartBeat(proxySockFD);
@@ -302,7 +297,7 @@ int main( int argc, char *argv[] ){
     close(proxySockFD);
     close(localSockFD);
     close(listenSockFD);
-
+    }
     if(DEBUG){
         printf("cproxy is finished\n");
     }
