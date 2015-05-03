@@ -49,6 +49,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
 int removeHeader(char *buffer, int *nBytes);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
 void addHeader(void *buffer, int *nBytes, uint8_t type);
+void reconnectToProxy(int *listenSock, int *proxySock);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -69,7 +70,7 @@ int main( void ){
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
-
+    for(;;){
     pollFDs[LOCAL_POLL].fd = localSockFD;
     pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
@@ -256,10 +257,12 @@ int main( void ){
     }
     //Close sockets
     close(proxySockFD);
-    close(localSockFD);
+    
     close(listenSockFD);
 
-
+    reconnectToProxy(&listenSockFD, &proxySockFD);
+    }//End for(;;)
+    close(localSockFD);
 
     printf("sproxy is finished\n");
     return 0;
@@ -495,4 +498,48 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
         unsigned char *temp = (unsigned char*)buffer;
         printf("Just added a header of type %d\n", *temp);
     }
+}
+
+void reconnectToProxy(int *listenSock, int *proxySock){
+    int proxySockFD, listenSockFD;
+    struct sockaddr_in proxyAddr;
+    struct sockaddr_storage connectingAddr;
+    socklen_t addrLen;
+    
+
+    listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(listenSockFD < 0){
+        error("Error opening socket\n");
+    }
+    
+    proxyAddr.sin_family = AF_INET;
+    proxyAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    proxyAddr.sin_port = htons(INCOMING_PORT);
+    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+
+    if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
+        error("Error on binding\n");
+    }
+
+    //Listen on port 6200 for incoming connection
+    if(DEBUG){
+        printf("Listening for connections...(Use \"telnet 192.168.8.2 6200\" for debugging)\n");
+    }
+    if(listen(listenSockFD, BACKLOG) < 0){
+        error("Error when listening\n");
+    }
+
+    //Accept the connection from telnet/cproxy
+    addrLen = sizeof(connectingAddr);
+    proxySockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
+    if(proxySockFD < 0){
+        error("Error accepting connection\n");
+    }
+
+    if(DEBUG){
+        printf("Accepted a connection\n");
+    }
+
+    *listenSock = listenSockFD;
+    *proxySock = proxySockFD;
 }
