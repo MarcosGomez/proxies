@@ -107,7 +107,7 @@ int main( void ){
                 }
                 //close(proxySockFD);
                 printf("Should have closed the proxy connection by now\n");
-                //break;
+                break;
             }else{
                 //Send out hearbeat message
                 sendHeartBeat(proxySockFD);
