@@ -580,7 +580,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     for(rv = -1; rv < 0; ){
         rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
         if( rv == -1){
-            error("Error connecting\n");
+            perror("Error connecting\n");
         }
     }
     
