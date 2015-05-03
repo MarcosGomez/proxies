@@ -291,7 +291,7 @@ int main( int argc, char *argv[] ){
             }
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
             pollFDs[PROXY_POLL].revents & POLLNVAL ){
-                perror("Poll returned an error from proxy\n");
+                perror("Poll returned an ERROR from proxy\n");
             }
         }
     }
@@ -581,7 +581,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     for(rv = -1; rv < 0; ){
         rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
         if( rv == -1 && DEBUG){
-            printf("Error connecting\n");
+            perror("Error connecting\n");
         }
     }
     

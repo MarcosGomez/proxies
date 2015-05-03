@@ -172,7 +172,7 @@ int main( void ){
             }
             if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
             pollFDs[PROXY_POLL].revents & POLLNVAL ){
-                perror("Poll returned an error from proxy\n");
+                perror("Poll returned an ERROR from proxy\n");
             }
 
 //---------------------------------------------------------------------------------------------
@@ -461,7 +461,7 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
     // }
 
     if(*nBytes == -1){
-        perror("recv error\n");
+        perror("recv ERROR\n");
     }else if(*nBytes == 0){
         printf("The proxy side closed the connection on you\n");
         return -1;
