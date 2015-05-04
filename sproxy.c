@@ -216,6 +216,7 @@ int main( void ){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
                         printf("The local side closed the connection on you\n");
+                        closeSession = 1;
                         break;
                     }else{
                         if(DEBUG){

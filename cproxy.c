@@ -7,9 +7,9 @@
 // Telnet into cproxy using "telnet localhost 5200"
 
 //Main Points
-//1) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
+//X) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
+//X) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
 
-//2) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
 //3) No data loss. Need something like sequence/ack number to retransmit missing data.
 //4) Sproxy can tell difference between new session or continuation of old. Should restart
 //   connection with telnet daemon if new.
@@ -188,6 +188,7 @@ int main( int argc, char *argv[] ){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
                         printf("The local side closed the connection on you\n");
+                        closeSession = 1;
                         break;
                     }else{
                         if(DEBUG){
