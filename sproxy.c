@@ -116,22 +116,7 @@ int main( void ){
         }else{
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
-        gettimeofday(&timeNow, NULL);
-        if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
-            numTimeouts++;
-            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            
-            if(numTimeouts >= 3){
-                if(DEBUG){
-                    printf("Lost connection, time to close failed socket\n");
-                }
-                printf("Should have closed the proxy connection by now\n");
-                break;
-            }else{
-                //Send out hearbeat message
-                sendHeartBeat(proxySockFD);
-            }
-        }
+        
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
@@ -151,6 +136,23 @@ int main( void ){
                 sendHeartBeat(proxySockFD);
             }
         }else{
+            //Check proxy connection if high traffic
+            gettimeofday(&timeNow, NULL);
+            if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
+                numTimeouts++;
+                printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                
+                if(numTimeouts >= 3){
+                    if(DEBUG){
+                        printf("Lost connection, time to close failed socket\n");
+                    }
+                    printf("Should have closed the proxy connection by now\n");
+                    break;
+                }else{
+                    //Send out hearbeat message
+                    sendHeartBeat(proxySockFD);
+                }
+            }
             
             //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
