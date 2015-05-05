@@ -43,7 +43,7 @@ struct packetData{
     struct packetData *next;
     uint32_t id;
     char data[MAX_BUFFER_SIZE];
-}
+};
 
 void usage(char *argv[]);
 void error(char *msg);
