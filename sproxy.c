@@ -288,9 +288,9 @@ int main( void ){
             //Check proxy connection when high traffic
             gettimeofday(&timeNow, NULL);
             if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
-                numTimeouts++;
-                printf("Timeout occured by gettimeofday! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-                printf("Time diff was %d\n", timeNow.tv_sec - receiveTime.tv_sec);
+                numTimeouts = (int) timeNow.tv_sec - receiveTime.tv_sec;
+                printf("Timeout occured by gettimeofday! No data after %.3f seconds\n", numTimeouts);
+
                 
                 if(numTimeouts >= 3){
                     if(DEBUG){
