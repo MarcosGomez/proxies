@@ -97,6 +97,11 @@ int main( void ){
         }else{
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
+        if(sendToLocal){
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
+        }
 
         returnValue = poll(&pollFDs[PROXY_POLL], 1, TIMEOUT);
         if(returnValue == -1){
@@ -189,11 +194,7 @@ int main( void ){
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
-        if(sendToLocal){
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
-        }
+        
         returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
