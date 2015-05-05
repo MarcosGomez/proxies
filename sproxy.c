@@ -102,7 +102,7 @@ int main( void ){
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
 
-        returnValue = poll(&pollFDs[PROXY_POLL], 1, TIMEOUT);
+        returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
         }else if(returnValue == 0){
@@ -193,27 +193,6 @@ int main( void ){
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
-        returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
-        if(returnValue == -1){
-            error("poll Error\n");
-        }else if(returnValue == 0){
-            // numTimeouts++;
-            // printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            
-            
-            // if(numTimeouts >= 3){
-            //     if(DEBUG){
-            //         printf("Lost connection, time to close failed socket\n");
-            //     }
-            //     //close(proxySockFD);
-            //     printf("Should have closed the proxy connection by now\n");
-            //     break;
-            // }else{
-            //     //Send out hearbeat message
-            //     sendHeartBeat(proxySockFD);
-            // }
-            printf("local timed out\n");
-        }else{
 
             //Check local events
             if(notSentLocal){
@@ -226,6 +205,7 @@ int main( void ){
                     if(DEBUG){
                         printf("receiving out-of-band data from local!!\n");
                     }
+                    numTimeouts = 0;
                     nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
@@ -244,6 +224,7 @@ int main( void ){
                     if(DEBUG){
                         printf("receiving normal data from local\n");
                     }
+                    numTimeouts = 0;
                     nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
                     if(nBytesLocal == -1){
                         perror("recv error\n");

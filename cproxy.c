@@ -153,7 +153,6 @@ int main( int argc, char *argv[] ){
                 sendHeartBeat(proxySockFD);
             }
         }else{
-            numTimeouts = 0;
             //Check local events
             if(notSentLocal){
                 if(DEBUG){
@@ -246,6 +245,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
+                    numTimeouts = 0;
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
@@ -256,6 +256,7 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
+                    numTimeouts = 0;
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
