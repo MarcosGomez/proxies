@@ -39,6 +39,12 @@ struct customHdr{
     uint32_t payloadLength;//Can be 0 for heartbeat and initiation
 } __attribute__ ((packed)); //13 bytes
 
+struct packetData{
+    struct packetData *next;
+    uint32_t id;
+    char data[MAX_BUFFER_SIZE];
+}
+
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
@@ -50,6 +56,8 @@ int removeHeader(char *buffer, int *nBytes);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
 void addHeader(void *buffer, int *nBytes, uint8_t type);
 void reconnectToProxy(int *listenSock, int *proxySock);
+void rememberData(void *buffer, uint32_t id);
+void eraseData(uint32_t id);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -83,11 +91,7 @@ int main( void ){
     //Mainloop
     while(!closeSession){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
-        if(sendToLocal){
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
-        }
+        
         if(sendToProxy){
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
         }else{
@@ -185,6 +189,11 @@ int main( void ){
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
+        if(sendToLocal){
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
+        }
         returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
@@ -434,8 +443,9 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         sendAck(sockFD);
     }else if(type == INIT){
         if(DEBUG){
-            printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+            printf("Recieved a new connection initiation, which should happen on server\n");
         }
+        printf("Need to create new connection to local telnet\n");
     }else if(type == DATA){
         if(DEBUG){
             printf("Received normal data\n");
@@ -593,4 +603,18 @@ void reconnectToProxy(int *listenSock, int *proxySock){
 
     *listenSock = listenSockFD;
     *proxySock = proxySockFD;
+}
+
+void rememberData(void *buffer, uint32_t id){
+    if(DEBUG){
+        printf("Trying to remember data with id: %d\n", id);
+    }
+    //TODO
+}
+
+void eraseData(uint32_t id){
+    if(DEBUG){
+        printf("Erasing all data up to id: %d]n", id);
+    }
+    //TODO
 }

@@ -130,11 +130,7 @@ int main( int argc, char *argv[] ){
         }else{
             pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
         }
-        if(sendToProxy){
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
-        }
+        
 
         returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
         if(returnValue == -1){
@@ -235,6 +231,11 @@ int main( int argc, char *argv[] ){
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
+        if(sendToProxy){
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
+        }
         returnValue = poll(&pollFDs[PROXY_POLL], 1, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
