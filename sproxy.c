@@ -91,16 +91,15 @@ int main( void ){
     //Mainloop
     while(!closeSession){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
-        
-        if(sendToProxy){
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
-        }
         if(sendToLocal){
             pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
         }else{
             pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
+        }
+        if(sendToProxy){
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+        }else{
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
 
         returnValue = poll(&pollFDs[PROXY_POLL], 1, TIMEOUT);
@@ -194,7 +193,6 @@ int main( void ){
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
-        
         returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
