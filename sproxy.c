@@ -218,7 +218,6 @@ int main( void ){
                     if(DEBUG){
                         printf("receiving out-of-band data from local!!\n");
                     }
-                    numTimeouts = 0;
                     nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
@@ -237,7 +236,6 @@ int main( void ){
                     if(DEBUG){
                         printf("receiving normal data from local\n");
                     }
-                    numTimeouts = 0;
                     nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
@@ -285,12 +283,14 @@ int main( void ){
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from local\n");
             }
-            
-            //Check proxy connection if high traffic
+
+
+            //Check proxy connection when high traffic
             gettimeofday(&timeNow, NULL);
             if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
                 numTimeouts++;
-                printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                printf("Timeout occured by gettimeofday! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                printf("Time diff was %d\n", timeNow.tv_sec - receiveTime.tv_sec);
                 
                 if(numTimeouts >= 3){
                     if(DEBUG){
