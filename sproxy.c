@@ -136,23 +136,7 @@ int main( void ){
                 sendHeartBeat(proxySockFD);
             }
         }else{
-            //Check proxy connection if high traffic
-            gettimeofday(&timeNow, NULL);
-            if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
-                numTimeouts++;
-                printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-                
-                if(numTimeouts >= 3){
-                    if(DEBUG){
-                        printf("Lost connection, time to close failed socket\n");
-                    }
-                    printf("Should have closed the proxy connection by now\n");
-                    break;
-                }else{
-                    //Send out hearbeat message
-                    sendHeartBeat(proxySockFD);
-                }
-            }
+
             
             //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
@@ -222,9 +206,6 @@ int main( void ){
                 perror("Poll returned an ERROR from proxy\n");
             }
 
-//---------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------
 
             //Check local events
             if(notSentLocal){
@@ -304,8 +285,27 @@ int main( void ){
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from local\n");
             }
+            
+            //Check proxy connection if high traffic
+            gettimeofday(&timeNow, NULL);
+            if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
+                numTimeouts++;
+                printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                
+                if(numTimeouts >= 3){
+                    if(DEBUG){
+                        printf("Lost connection, time to close failed socket\n");
+                    }
+                    printf("Should have closed the proxy connection by now\n");
+                    break;
+                }else{
+                    //Send out hearbeat message
+                    sendHeartBeat(proxySockFD);
+                }
+            }
         }
-    }
+
+    }//end while
     //Close sockets
     close(proxySockFD);
     
