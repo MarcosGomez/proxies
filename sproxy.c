@@ -289,7 +289,7 @@ int main( void ){
             gettimeofday(&timeNow, NULL);
             if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
                 numTimeouts = (int) timeNow.tv_sec - receiveTime.tv_sec;
-                printf("Timeout occured by gettimeofday! No data after %.3f seconds\n", numTimeouts);
+                printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
 
                 
                 if(numTimeouts >= 3 && numTimeouts < 9999){
