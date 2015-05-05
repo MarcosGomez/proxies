@@ -16,6 +16,7 @@
 #include <sys/poll.h>
 #include <netdb.h>
 #include <unistd.h> //close
+#include <sys/time.h>
 
 #define DEBUG 1
 #define INCOMING_PORT 6200
@@ -45,6 +46,16 @@ struct packetData{
     char data[MAX_BUFFER_SIZE];
 };
 
+//int gettimeofday(struct timeval *tv, struct timezone *tz);
+// struct timeval {
+//     time_t      tv_sec;     // seconds 
+//     suseconds_t tv_usec;    // microseconds 
+// };
+// struct timezone {
+//     int tz_minuteswest;     ///* minutes west of Greenwich */
+//     int tz_dsttime;         ///* type of DST correction */
+// };
+
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
@@ -72,6 +83,8 @@ int main( void ){
     int closeSession;
 
     int numTimeouts;
+    struct timeval receiveTime;
+    struct timeval timeNow;
 
     printf("Starting up the server...\n");
 
@@ -88,6 +101,8 @@ int main( void ){
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
     = numTimeouts = closeSession = 0; //Initalize to false
+    gettimeofday(&receiveTime, NULL);
+    gettimeofday(&timeNow, NULL);
     //Mainloop
     while(!closeSession){
         //Only check for POLLOUT when necessary to use timeouts as hearbeats
@@ -101,7 +116,22 @@ int main( void ){
         }else{
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
-
+        gettimeofday(&timeNow, NULL);
+        if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
+            numTimeouts++;
+            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+            
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                printf("Should have closed the proxy connection by now\n");
+                break;
+            }else{
+                //Send out hearbeat message
+                sendHeartBeat(proxySockFD);
+            }
+        }
         returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
@@ -114,7 +144,6 @@ int main( void ){
                 if(DEBUG){
                     printf("Lost connection, time to close failed socket\n");
                 }
-                //close(proxySockFD);
                 printf("Should have closed the proxy connection by now\n");
                 break;
             }else{
@@ -131,6 +160,7 @@ int main( void ){
             }else{
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
+                    gettimeofday(&receiveTime, NULL);
                     numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
@@ -142,6 +172,7 @@ int main( void ){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                    gettimeofday(&receiveTime, NULL);
                     numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
