@@ -67,8 +67,11 @@ int removeHeader(char *buffer, int *nBytes);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
 void addHeader(void *buffer, int *nBytes, uint8_t type);
 void reconnectToProxy(int *listenSock, int *proxySock);
-void rememberData(void *buffer, uint32_t id);
-void eraseData(uint32_t id);
+void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes);
+void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes);
+void eraseData(struct packetData **startPacket, uint32_t id);
+struct packetData *deleteData(struct packetData *pData, uint32_t id);
+int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sendTo, int *isOOB, uint32_t *seqNum);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -86,13 +89,19 @@ int main( void ){
     struct timeval receiveTime;
     struct timeval timeNow;
 
+    struct packetData *storedPackets;
+    uint32_t sequenceNum;
+
     printf("Starting up the server...\n");
 
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
+    storedPackets = NULL;
+    sequenceNum = 0;
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
     for(;;){
+    //Reconnect again
     pollFDs[LOCAL_POLL].fd = localSockFD;
     pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
@@ -147,7 +156,6 @@ int main( void ){
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
                     gettimeofday(&receiveTime, NULL);
-                    numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
@@ -159,7 +167,6 @@ int main( void ){
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
                     gettimeofday(&receiveTime, NULL);
-                    numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
@@ -218,37 +225,45 @@ int main( void ){
                     if(DEBUG){
                         printf("receiving out-of-band data from local!!\n");
                     }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
-                    if(nBytesLocal == -1){
-                        perror("recv error\n");
-                    }else if(nBytesLocal == 0){
-                        printf("The local side closed the connection on you\n");
+                    if(receiveLocalPacket(localSockFD, &nBytesLocal, 1, bufLocal, &sendToProxy, &isOOBProxy, &sequenceNum) == -1){
                         closeSession = 1;
                         break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesLocal);
-                        }
-                        sendToProxy = 1;
-                        isOOBProxy = 1;
-                    } 
+                    }
+                    // nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+                    // if(nBytesLocal == -1){
+                    //     perror("recv error\n");
+                    // }else if(nBytesLocal == 0){
+                    //     printf("The local side closed the connection on you\n");
+                    //     closeSession = 1;
+                    //     break;
+                    // }else{
+                    //     if(DEBUG){
+                    //         printf("Just recieved %d bytes\n", nBytesLocal);
+                    //     }
+                    //     sendToProxy = 1;
+                    //     isOOBProxy = 1;
+                    // } 
                 }else if(pollFDs[LOCAL_POLL].revents & POLLIN){
                     if(DEBUG){
                         printf("receiving normal data from local\n");
                     }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
-                    if(nBytesLocal == -1){
-                        perror("recv error\n");
-                    }else if(nBytesLocal == 0){
-                        printf("The local side closed the connection on you\n");
+                    if(receiveLocalPacket(localSockFD, &nBytesLocal, 0, bufLocal, &sendToProxy, &isOOBProxy, &sequenceNum) == -1){
                         closeSession = 1;
                         break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesLocal);
-                        }
-                        sendToProxy = 1;
-                    } 
+                    }
+                    // nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
+                    // if(nBytesLocal == -1){
+                    //     perror("recv error\n");
+                    // }else if(nBytesLocal == 0){
+                    //     printf("The local side closed the connection on you\n");
+                    //     closeSession = 1;
+                    //     break;
+                    // }else{
+                    //     if(DEBUG){
+                    //         printf("Just recieved %d bytes\n", nBytesLocal);
+                    //     }
+                    //     sendToProxy = 1;
+                    // } 
                 }
             }
             //SEND
@@ -515,7 +530,7 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
     //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
     //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     // }
-
+    *numTimeouts = 0;
     if(*nBytes == -1){
         perror("recv ERROR\n");
     }else if(*nBytes == 0){
@@ -617,16 +632,103 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     *proxySock = proxySockFD;
 }
 
-void rememberData(void *buffer, uint32_t id){
+void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes){
     if(DEBUG){
         printf("Trying to remember data with id: %d\n", id);
     }
-    //TODO
+    if(*startPacket == NULL){
+        if(DEBUG){
+            printf("Adding first data\n");
+        }
+        (*startPacket) = (struct packetData *)malloc(sizeof(struct packetData));
+        (*startPacket)->next = NULL;
+        (*startPacket)->id = id;
+        memcpy((*startPacket)->data, buffer, nBytes);
+        if(DEBUG){
+            printf("Just stored packet with id %d\n", (*startPacket)->id);
+        }
+    }else{
+        addData(*startPacket, buffer, id, nBytes);
+    }
+    
 }
 
-void eraseData(uint32_t id){
-    if(DEBUG){
-        printf("Erasing all data up to id: %d]n", id);
+//Adds data to end of list recursively
+void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes){
+    if(pData->next == NULL){
+        pData->next = (struct packetData *)malloc(sizeof(struct packetData));
+        struct packetData *newData = pData->next;
+        newData->next = NULL;
+        newData->id = id;
+        memcpy(newData->data, buffer, nBytes);
+        if(DEBUG){
+            printf("Just stored packet with id %d\n", newData->id);
+        }
+    }else{
+        //Go closer to end of linked list
+        addData(pData->next, buffer, id, nBytes);
     }
-    //TODO
+}
+
+void eraseData(struct packetData **startPacket, uint32_t id){
+    if(DEBUG){
+        printf("Erasing all data up to id: %d\n", id);
+    }
+    if(*startPacket == NULL){
+        perror("Trying to erase stored packets from an empty list!\n");
+    }else{
+        *startPacket = deleteData(*startPacket, id);
+    }
+}
+
+struct packetData *deleteData(struct packetData *pData, uint32_t id){
+    struct packetData *tempData;
+    tempData = pData->next;
+
+    if(pData->id == id){
+        free(pData);
+        return tempData;
+    }else if(tempData == NULL){
+        perror("Packet to delete doesn't exit in the list!!\n");
+        return NULL;
+    }else{
+        free(pData);
+        return deleteData(tempData, id);
+    }
+}
+
+int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sendTo, int *isOOB, uint32_t *seqNum){
+    if(flag){
+        if(DEBUG){
+            printf("receiving oob data from local\n");
+        }
+        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), MSG_OOB); //Receive normal data
+    }else{
+        if(DEBUG){
+            printf("receiving normal data from local\n");
+        }
+        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive normal data
+    }
+    
+    if(*nBytes == -1){
+        perror("recv error\n");
+    }else if(*nBytes == 0){
+        printf("The local side closed the connection on you\n");
+        return -1;
+    }else{
+        if(DEBUG){
+            printf("Just recieved %d bytes\n", *nBytes);
+        }
+        *sendTo = 1;
+        if(flag){
+            *isOOB = 1;
+        }else{
+            *isOOB = 0;
+        }
+    }
+
+    //Store
+
+    return 0;
+
 }

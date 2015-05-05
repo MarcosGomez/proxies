@@ -245,7 +245,6 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
-                    numTimeouts = 0;
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
@@ -256,7 +255,6 @@ int main( int argc, char *argv[] ){
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
-                    numTimeouts = 0;
                     nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
@@ -518,7 +516,7 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
     //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
     //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     // }
-
+    *numTimeouts = 0;
     if(*nBytes == -1){
         perror("recv error\n");
     }else if(*nBytes == 0){
