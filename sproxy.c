@@ -292,7 +292,7 @@ int main( void ){
                 printf("Timeout occured by gettimeofday! No data after %.3f seconds\n", numTimeouts);
 
                 
-                if(numTimeouts >= 3){
+                if(numTimeouts >= 3 && numTimeouts < 9999){
                     if(DEBUG){
                         printf("Lost connection, time to close failed socket\n");
                     }
