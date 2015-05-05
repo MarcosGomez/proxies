@@ -97,7 +97,7 @@ int main( int argc, char *argv[] ){
     int sendToProxy, sendToLocal; //booleans
     int isOOBProxy, isOOBLocal; //bool, is out-of-band
     int notSentProxy, notSentLocal; //bool
-    int closeSession = 0;
+    int closeSession;
 
     int numTimeouts;
     
@@ -120,7 +120,7 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    = numTimeouts = 0; //Initalize to false
+    = numTimeouts = closeSession = 0; //Initalize to false
 
     //Mainloop
     while(!closeSession){
@@ -136,24 +136,25 @@ int main( int argc, char *argv[] ){
             pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
         }
 
-        returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
+        returnValue = poll(&pollFDs[LOCAL_POLL], 1, TIMEOUT);
         if(returnValue == -1){
             error("poll Error\n");
         }else if(returnValue == 0){
-            numTimeouts++;
-            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            if(numTimeouts >= 3){
-                if(DEBUG){
-                    printf("Lost connection, time to close failed socket\n");
-                }
-                printf("Should have closed the proxy connection by now\n");
-                break;
-            }else{
-                //Send out hearbeat message
-                sendHeartBeat(proxySockFD);
-            }
+            // numTimeouts++;
+            // printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+            // if(numTimeouts >= 3){
+            //     if(DEBUG){
+            //         printf("Lost connection, time to close failed socket\n");
+            //     }
+            //     printf("Should have closed the proxy connection by now\n");
+            //     break;
+            // }else{
+            //     //Send out hearbeat message
+            //     sendHeartBeat(proxySockFD);
+            // }
+            printf("local timed out\n");
         }else{
-            numTimeouts = 0;
+            //numTimeouts = 0;
             //Check local events
             if(notSentLocal){
                 if(DEBUG){
@@ -230,11 +231,28 @@ int main( int argc, char *argv[] ){
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
                 perror("Poll returned an error from local\n");
             }
-
+        }
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------
-
+        returnValue = poll(&pollFDs[PROXY_POLL], 1, TIMEOUT);
+        if(returnValue == -1){
+            error("poll Error\n");
+        }else if(returnValue == 0){
+            numTimeouts++;
+            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+            if(numTimeouts >= 3){
+                if(DEBUG){
+                    printf("Lost connection, time to close failed socket\n");
+                }
+                printf("Should have closed the proxy connection by now\n");
+                break;
+            }else{
+                //Send out hearbeat message
+                sendHeartBeat(proxySockFD);
+            }
+        }else{
+            
             //Check proxy events - HEADER MANAGEMENT
             if(notSentProxy){
                 if(DEBUG){
@@ -243,6 +261,7 @@ int main( int argc, char *argv[] ){
             }else{
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
+                    numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving out-of-band data from proxy!!\n");
                     }
@@ -253,6 +272,7 @@ int main( int argc, char *argv[] ){
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                    numTimeouts = 0;
                     if(DEBUG){
                         printf("receiving normal data from proxy\n");
                     }
@@ -358,9 +378,8 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     }
 
     //Listen to TCP port 5200 for incoming connection
-    if(DEBUG){
-        printf("Listening for connections...(Use \"telnet localhost 5200\")\n");
-    }
+    printf("Listening for connections...(Use \"telnet localhost 5200\")\n");
+    
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
     }
@@ -602,7 +621,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         poll(&pollFD, 1, WAITTIME);
         i += WAITTIME/1000;
         if(DEBUG){
-            printf("Has been trying to reconnect for %d seconds\n", i);
+            printf("Has been trying to reconnect for %d seconds (Can take up to 3 min)\n", i);
         }
         // for( i = 0; i <= 0; ){
         //     if(DEBUG){
