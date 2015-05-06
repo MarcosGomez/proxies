@@ -101,6 +101,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
     storedPackets = NULL;
     sequenceNum = 0;
     receivedAckNum = 0;
+    closeSession = 0;
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
@@ -113,7 +114,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    = numTimeouts = closeSession = 0; //Initalize to false
+    = numTimeouts = 0; //Initalize to false
     gettimeofday(&receiveTime, NULL);
     gettimeofday(&timeNow, NULL);
     //Mainloop
@@ -568,6 +569,29 @@ void reconnectToProxy(int *listenSock, int *proxySock){
         printf("Now trying to accept connection\n");
     }
 
+    // struct pollfd pollFD;
+    // printf("Now trying to attempting to connect to server\n");
+    // fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
+    
+    // int rv;
+    // int i = 0;
+    // for(rv = -1; rv < 0; ){
+    //     rv = accept(proxySockFD, (struct sockaddr *) &connectingAddr, sizeof(connectingAddr));
+    //     if( rv == -1 ){
+    //         perror("Error connecting\n");
+    //     }
+    //     //Wait one sec
+    //     pollFD.fd = proxySockFD;
+    //     pollFD.events = POLLIN;
+        
+    //     poll(&pollFD, 1, WAITTIME);
+    //     i += WAITTIME/1000;
+    //     if(DEBUG){
+    //         printf("Has been trying to reconnect for %d seconds (Can take up to 3 min)\n", i);
+    //     }
+        
+    // }
+
     //Accept the connection from telnet/cproxy
     addrLen = sizeof(connectingAddr);
     proxySockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
@@ -663,14 +687,14 @@ struct packetData *deleteData(struct packetData *pData, uint32_t id){
 int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sendTo, int *isOOB, uint32_t *seqNum, struct packetData **startPacket){
     if(flag){
         if(DEBUG){
-            printf("receiving out-of-band data from local!!\n");
+            printf("receiving out-of-band data from local\n");
         }
-        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), MSG_OOB); //Receive normal data
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive normal data
     }else{
         if(DEBUG){
             printf("receiving normal data from local\n");
         }
-        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive normal data
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive normal data
     }
     
     if(*nBytes == -1){
@@ -708,7 +732,7 @@ void retransmitUnAckedData(int sockFD, struct packetData *pData){
             printf("Only sent %d bytes because of error!\n", nBytes);
         }
         if(DEBUG){
-            printf("Retransmitted a packet of size %d\n", nBytes);
+            printf("Retransmitted a packet of size %d and id of %d\n", nBytes, pData->id);
         }
 
         retransmitUnAckedData(sockFD, pData->next);

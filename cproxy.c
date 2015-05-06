@@ -111,6 +111,7 @@ int main( int argc, char *argv[] ){
     //Set up sockets
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
     receivedSeqNum = 0;
+    closeSession = 0;
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
@@ -122,7 +123,7 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    = numTimeouts = closeSession = 0; //Initalize to false
+    = numTimeouts; //Initalize to false
 
     //Mainloop
     while(!closeSession){
@@ -317,7 +318,9 @@ int main( int argc, char *argv[] ){
     }//End for(;;)
     close(localSockFD);
     close(listenSockFD);
+
     if(DEBUG){
+        printf("Last received seqNum is %d\n", receivedSeqNum);
         printf("cproxy is finished\n");
     }
     return 0;
@@ -584,18 +587,13 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         //Wait one sec
         pollFD.fd = proxySockFD;
         pollFD.events = POLLIN;
-        //int i;
+        
         poll(&pollFD, 1, WAITTIME);
         i += WAITTIME/1000;
         if(DEBUG){
             printf("Has been trying to reconnect for %d seconds (Can take up to 3 min)\n", i);
         }
-        // for( i = 0; i <= 0; ){
-        //     if(DEBUG){
-        //         printf("Checking if able to send\n");
-        //     }
-        //     i = 
-        // }
+        
     }
 
     // int oldfl;
