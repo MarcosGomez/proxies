@@ -440,6 +440,7 @@ void sendAck(int pSockFD, uint32_t ackNum){
 
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum){
     int type;
+    uint32_t pastSeqNum = *seqNum;
     type = removeHeader(buffer, nBytes, seqNum);
     if(type == HEARTBEAT){
         if(DEBUG){
@@ -454,12 +455,17 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         if(DEBUG){
             printf("Received normal data\n");
         }
-        *sendTo = 1;
-        if(flag){
-            *isOOB = 1;
+        if(pastSeqNum >= seqNum){
+            //Then don't send it out
         }else{
-            *isOOB = 0;
+            *sendTo = 1;
+            if(flag){
+                *isOOB = 1;
+            }else{
+                *isOOB = 0;
+            }
         }
+        
         
     }else if(type == ACK){
         if(DEBUG){
@@ -467,7 +473,8 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         }
         *numTimeouts = 0;
     }else{
-        perror("Received unknown type of header\n");
+        perror("Received unknown type of header!\n");
+        *seqNum = pastSeqNum;
     }
 }
 
