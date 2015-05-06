@@ -446,7 +446,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
 
     int type;
     int pastType = -1;
-    uint32_t pastAckNum = *ackNum;
+    //uint32_t pastAckNum = *ackNum;
     int tempNBytes = *nBytes;
     uint32_t pLoadLength;
     int rVal;
@@ -512,7 +512,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         // *numTimeouts = 0;
     }else{
         perror("Received unknown type of header!\n");
-        *ackNum = pastAckNum;
+        //*ackNum = pastAckNum;
     }
 }
 
