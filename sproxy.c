@@ -289,7 +289,6 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
                     if(DEBUG){
                         printf("Lost connection, time to close failed socket\n");
                     }
-                    printf("Should have closed the proxy connection by now\n");
                     break;
                 }else{
                     //Send out hearbeat message
@@ -311,7 +310,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
         if(DEBUG){
             printf("receivedAckNum = %d and sequenceNum = %d\n", receivedAckNum, sequenceNum);
         }
-        //retransmitUnAckedData(proxySockFD, storedPackets);
+        retransmitUnAckedData(proxySockFD, storedPackets);
     }
     
     }//End for(;;)
@@ -454,9 +453,13 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum){
     
     //Process Header
     type = cHdr->type;
-    //if(ntohl(cHdr->ackNum) > *ackNum){
+    if(ntohl(cHdr->ackNum) > *ackNum){
         *ackNum = ntohl(cHdr->ackNum);
-    //}
+    }else{
+        if(DEBUG){
+            printf("ignored packet ackNum because too small!\n");
+        }
+    }
     if(DEBUG){
         printf("Received packet of type %d with ackNum %d\n", type, *ackNum);
     }
@@ -475,14 +478,14 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
         if(DEBUG){
             printf("receiving out-of-band data from proxy\n");
         }
-        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
     }else{
         //Normal
         if(DEBUG){
             printf("receiving normal data from proxy\n");
         }
         //printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
-        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive out-of-band data
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     }
 
     gettimeofday(receiveTime, NULL);
