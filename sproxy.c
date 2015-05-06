@@ -75,7 +75,7 @@ struct packetData *deleteData(struct packetData *pData, uint32_t id);
 int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sendTo, int *isOOB, uint32_t *seqNum, struct packetData **startPacket);
 void retransmitUnAckedData(int sockFD, struct packetData *pData);
 
-int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
+int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
     int nBytesLocal, nBytesProxy;
@@ -513,7 +513,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_
     cHdr.type = type;
     cHdr.seqNum = htonl(seqNum);
     cHdr.ackNum = htonl(ackNum);
-    cHdr.payloadLength = *nBytes;
+    cHdr.payloadLength = htonl(*nBytes);
 
     //Copy header to buffer
     if(*nBytes + sizeof(struct customHdr) > MAX_BUFFER_SIZE){

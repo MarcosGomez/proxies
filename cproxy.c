@@ -6,6 +6,8 @@
 // 
 // Telnet into cproxy using "telnet localhost 5200"
 
+//NEED TO PARSE THROUGH RECEIVED BUFFER TO DIFFERENTIATE DIFF PACKETS
+
 //Main Points
 //X) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
 //X) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
@@ -80,7 +82,7 @@ int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD, uint32_t ackNum);
 void sendAck(int pSockFD, uint32_t ackNum);
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum);
-int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum);
+int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum);
 void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum);
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress);
@@ -123,7 +125,7 @@ int main( int argc, char *argv[] ){
     pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
     sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    = numTimeouts; //Initalize to false
+    = numTimeouts = 0; //Initalize to false
 
     //Mainloop
     while(!closeSession){
@@ -432,18 +434,48 @@ void sendAck(int pSockFD, uint32_t ackNum){
 
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum){
     int type;
+    int pastType = -1;
     uint32_t pastSeqNum = *seqNum;
-    type = removeHeader(buffer, nBytes, seqNum);
-    if(type == HEARTBEAT){
-        if(DEBUG){
-            printf("Recieved a heartbeat, time to send ACK\n");
+    int tempNBytes = *nBytes;
+    uint32_t pLoadLength;
+    int rVal;
+
+    //Remove multiple headers on same buffer
+    do{
+        rVal = removeHeader(buffer, &tempNBytes, &type, seqNum);
+        pLoadLength = rVal;
+        (*nBytes) -= sizeof(struct customHdr);
+        tempNBytes -= pLoadLength;
+        buffer += pLoadLength;
+
+        if(type == DATA){
+            pastType = DATA;
         }
-        sendAck(sockFD, *seqNum);
+        if(type == HEARTBEAT){
+            if(DEBUG){
+                printf("Recieved a heartbeat, time to send ACK\n");
+            }
+            sendAck(sockFD, *seqNum);
+        }else if(type == ACK){
+            if(DEBUG){
+                printf("received ACK\n");
+            }
+            *numTimeouts = 0;
+        }
+    }while(rVal >= 0);
+    
+    
+
+    if(type == HEARTBEAT){
+        // if(DEBUG){
+        //     printf("Recieved a heartbeat, time to send ACK\n");
+        // }
+        //sendAck(sockFD, *seqNum);
     }else if(type == INIT){
         if(DEBUG){
             printf("Recieved a new connection initiation, which shouldn't happen on client\n");
         }
-    }else if(type == DATA){
+    }else if(pastType == DATA){
         if(DEBUG){
             printf("Received normal data\n");
         }
@@ -463,25 +495,27 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         
         
     }else if(type == ACK){
-        if(DEBUG){
-            printf("received ACK\n");
-        }
-        *numTimeouts = 0;
+        // if(DEBUG){
+        //     printf("received ACK\n");
+        // }
+        // *numTimeouts = 0;
     }else{
         perror("Received unknown type of header!\n");
         *seqNum = pastSeqNum;
     }
 }
 
-int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
+int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
     struct customHdr *cHdr;
     int type;
+    uint32_t pLength;
     char tempBuf[MAX_BUFFER_SIZE];
 
     cHdr = (struct customHdr *) buffer;
     
     //Process Header
     type = cHdr->type;
+    pLength = ntohl(cHdr->payloadLength);
     if(ntohl(cHdr->seqNum) > *seqNum){
         *seqNum = ntohl(cHdr->seqNum);
     }else{
@@ -497,15 +531,25 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
     }
     
     if(DEBUG){
-        printf("Received packet of type %d with seqNum %d\n", type, *seqNum);
+        printf("Received packet of type %d with seqNum %d and payload size %d\n", type, *seqNum, pLength);
     }
 
     //Remove header
     memcpy(tempBuf, buffer, *nBytes);
     (*nBytes) -= sizeof(struct customHdr);
     memcpy(buffer, tempBuf + sizeof(struct customHdr), *nBytes);
-    
-    return type;
+
+    *rType = type;
+
+    if(*nBytes > pLength){
+        if(DEBUG){
+            printf("This buffer contains another header\n");
+        }
+        return pLength;
+    }else if(*nBytes < pLength){
+        perror("There is something wrong with payloadLength\n");
+    }
+    return -1;
 }
 
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum){
@@ -546,7 +590,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_
     cHdr.type = type;
     cHdr.seqNum = htonl(seqNum);
     cHdr.ackNum = htonl(ackNum);
-    cHdr.payloadLength = *nBytes;
+    cHdr.payloadLength = htonl(*nBytes);
 
     //Copy header to buffer
     if(*nBytes + sizeof(struct customHdr) > MAX_BUFFER_SIZE){
