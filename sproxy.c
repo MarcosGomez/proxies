@@ -454,13 +454,13 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
     if(flag){
         //Then OOB
         if(DEBUG){
-            printf("receiving out-of-band data from proxy!!\n");
+            printf("receiving out-of-band data from proxy\n");
         }
         *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
     }else{
         //Normal
         if(DEBUG){
-            printf("receiving normal data from proxy!!\n");
+            printf("receiving normal data from proxy\n");
         }
         //printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
         *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive out-of-band data

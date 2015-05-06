@@ -502,23 +502,23 @@ int removeHeader(char *buffer, int *nBytes){
 }
 
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB){
-    // if(flag){
-    //     //Then OOB
-    //     if(DEBUG){
-    //         printf("receiving out-of-band data from proxy!!\n");
-    //     }
-    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
-    // }else{
-    //     //Normal
-    //     if(DEBUG){
-    //         printf("receiving normal data from proxy!!\n");
-    //     }
-    //     printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
-    //     *nBytes = recv(sockFD, *buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
-    // }
+    if(flag){
+        //Then OOB
+        if(DEBUG){
+            printf("receiving out-of-band data from proxy\n");
+        }
+        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+    }else{
+        //Normal
+        if(DEBUG){
+            printf("receiving normal data from proxy\n");
+        }
+        //printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
+        *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive out-of-band data
+    }
     *numTimeouts = 0;
     if(*nBytes == -1){
-        perror("recv error\n");
+        perror("recv ERROR\n");
     }else if(*nBytes == 0){
         printf("The proxy side closed the connection on you\n");
         return -1;
