@@ -457,6 +457,9 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         }
         if(pastSeqNum >= *seqNum){
             //Then don't send it out
+            if(DEBUG){
+                printf("Not sending out this packet because seqNum too low!\n");
+            }
         }else{
             *sendTo = 1;
             if(flag){
