@@ -242,20 +242,20 @@ int main( int argc, char *argv[] ){
             }else{
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
-                    if(DEBUG){
-                        printf("receiving out-of-band data from proxy!!\n");
-                    }
-                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+                    // if(DEBUG){
+                    //     printf("receiving out-of-band data from proxy!!\n");
+                    // }
+                    // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         closeSession = 1;
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    if(DEBUG){
-                        printf("receiving normal data from proxy\n");
-                    }
-                    nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
+                    // if(DEBUG){
+                    //     printf("receiving normal data from proxy\n");
+                    // }
+                    // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
                      == -1){
                         closeSession = 1;
@@ -376,25 +376,6 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     }
     //Make a TCP connection to server port 6200(connect to sproxy)
     reconnectToProxy(proxySock, serverEth1IPAddress);
-    // if(DEBUG){
-    //     printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
-    // }
-    // proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
-    // if(proxySockFD < 0){
-    //     error("Error opening socket\n");
-    // }
-
-    // proxyAddr.sin_family = AF_INET;
-    // proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
-    // proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
-    // memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
-
-    // if(connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-    //     error("Error connecting\n");
-    // }
-    // if(DEBUG){
-    //     printf("Now connected to server side\n");
-    // }
 
     //Assign all file descriptors
     *localSock = localSockFD;
