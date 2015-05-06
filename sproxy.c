@@ -307,6 +307,9 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
     }else{
         reconnectToProxy(&listenSockFD, &proxySockFD);
         //New. Only retransmit after known connection loss
+        if(DEBUG){
+            printf("receivedAckNum = %d", receivedAckNum);
+        }
         retransmitUnAckedData(proxySockFD, storedPackets);
     }
     
@@ -580,7 +583,7 @@ void reconnectToProxy(int *listenSock, int *proxySock){
 
 void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes){
     if(DEBUG){
-        printf("Trying to remember data with id: %d\n", id);
+        printf("Remember data with id: %d\n", id);
     }
     if(*startPacket == NULL){
         if(DEBUG){
