@@ -79,10 +79,10 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
 void sendAck(int pSockFD);
-void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
-int removeHeader(char *buffer, int *nBytes);
-int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB);
-void addHeader(void *buffer, int *nBytes, uint8_t type);
+void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum);
+int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum);
+int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum);
+void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum);
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress);
 
 
@@ -100,6 +100,7 @@ int main( int argc, char *argv[] ){
     int closeSession;
 
     int numTimeouts;
+    uint32_t receivedSeqNum;
     
     //Make sure IP of server is provided
     if(argc < 2){
@@ -109,6 +110,7 @@ int main( int argc, char *argv[] ){
     printf("Starting up the client...\n");
     //Set up sockets
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
+    receivedSeqNum = 0;
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
@@ -246,7 +248,7 @@ int main( int argc, char *argv[] ){
                     //     printf("receiving out-of-band data from proxy!!\n");
                     // }
                     // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
                      == -1){
                         closeSession = 1;
                         break;
@@ -256,7 +258,7 @@ int main( int argc, char *argv[] ){
                     //     printf("receiving normal data from proxy\n");
                     // }
                     // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal)
+                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
                      == -1){
                         closeSession = 1;
                         break;
@@ -281,7 +283,7 @@ int main( int argc, char *argv[] ){
                             printf("Sending out data to proxy\n");
                         }
                         //Normal
-                        addHeader(bufLocal, &nBytesLocal, DATA);
+                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
                         if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
@@ -305,7 +307,9 @@ int main( int argc, char *argv[] ){
     if(closeSession){
         break;
     }else{
-        //New
+        if(DEBUG){
+            printf("Last received seqNum is %d\n", receivedSeqNum);
+        }
         reconnectToProxy(&proxySockFD, argv[1]);
     }
     
@@ -379,7 +383,6 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 
     //Assign all file descriptors
     *localSock = localSockFD;
-    //*proxySock = proxySockFD;
     *listenSock = listenSockFD;
 }
 
@@ -407,7 +410,7 @@ void sendHeartBeat(int pSockFD){
     }
     char bufHeart[MAX_BUFFER_SIZE];
     int nBytesHeart = 0;
-    addHeader(bufHeart, &nBytesHeart, HEARTBEAT);
+    addHeader(bufHeart, &nBytesHeart, HEARTBEAT, 0, 0);
     if(sendall(pSockFD, bufHeart, &nBytesHeart, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesHeart);
@@ -420,17 +423,16 @@ void sendAck(int pSockFD){
     }
     char bufAck[MAX_BUFFER_SIZE];
     int nBytesAck = 0;
-    addHeader(bufAck, &nBytesAck, ACK);
+    addHeader(bufAck, &nBytesAck, ACK, 0, 0);
     if(sendall(pSockFD, bufAck, &nBytesAck, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesAck);
     }
 }
 
-void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
+void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum){
     int type;
-    type = removeHeader(buffer, nBytes);
-    //type = DATA;
+    type = removeHeader(buffer, nBytes, seqNum);
     if(type == HEARTBEAT){
         if(DEBUG){
             printf("Recieved a heartbeat, time to send ACK\n");
@@ -461,7 +463,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
     }
 }
 
-int removeHeader(char *buffer, int *nBytes){
+int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
     struct customHdr *cHdr;
     int type;
     char tempBuf[MAX_BUFFER_SIZE];
@@ -470,8 +472,9 @@ int removeHeader(char *buffer, int *nBytes){
     
     //Process Header
     type = cHdr->type;
+    *seqNum = ntohl(cHdr->seqNum);
     if(DEBUG){
-        printf("Type was found out to be %d\n", type);
+        printf("Type was found out to be %d with seqNum %d\n", type, *seqNum);
     }
 
     //Remove header
@@ -482,7 +485,7 @@ int removeHeader(char *buffer, int *nBytes){
     return type;
 }
 
-int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB){
+int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum){
     if(flag){
         //Then OOB
         if(DEBUG){
@@ -494,7 +497,6 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
         if(DEBUG){
             printf("receiving normal data from proxy\n");
         }
-        //printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
         *nBytes = recv(sockFD, buffer, sizeof(buffer) - sizeof(struct customHdr), 0); //Receive out-of-band data
     }
     *numTimeouts = 0;
@@ -507,20 +509,20 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
         if(DEBUG){
             printf("Just recieved %d bytes\n", *nBytes);
         }
-        processReceivedHeader(sockFD, buffer, numTimeouts, sendTo, isOOB, nBytes, flag);                  
+        processReceivedHeader(sockFD, buffer, numTimeouts, sendTo, isOOB, nBytes, flag, seqNum);                  
     }
     
     return 0;
 }
 
-void addHeader(void *buffer, int *nBytes, uint8_t type){
+void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum){
     struct customHdr cHdr;
     char tempBuf[MAX_BUFFER_SIZE];
 
     //Set header values
     cHdr.type = type;
-    cHdr.seqNum = 0;
-    cHdr.ackNum = 0;
+    cHdr.seqNum = htonl(seqNum);
+    cHdr.ackNum = htonl(ackNum);
     cHdr.payloadLength = *nBytes;
 
     //Copy header to buffer
@@ -533,8 +535,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
     (*nBytes) += sizeof(struct customHdr); 
     memcpy(buffer, tempBuf, *nBytes);
     if(DEBUG){
-        unsigned char *temp = (unsigned char*)buffer;
-        printf("Just added a header of type %d\n", *temp);
+        printf("Just added header %d, seq:%d, ack:%d\n", type, seqNum, ackNum);
     }
 }
 

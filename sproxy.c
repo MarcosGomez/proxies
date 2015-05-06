@@ -43,6 +43,7 @@ struct customHdr{
 struct packetData{
     struct packetData *next;
     uint32_t id;
+    uint32_t size;
     char data[MAX_BUFFER_SIZE];
 };
 
@@ -62,18 +63,19 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock);
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
 void sendAck(int pSockFD);
-void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag);
-int removeHeader(char *buffer, int *nBytes);
-int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime);
-void addHeader(void *buffer, int *nBytes, uint8_t type);
+void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
+int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum);
+int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum);
+void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum);
 void reconnectToProxy(int *listenSock, int *proxySock);
 void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes);
 void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes);
 void eraseData(struct packetData **startPacket, uint32_t id);
 struct packetData *deleteData(struct packetData *pData, uint32_t id);
 int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sendTo, int *isOOB, uint32_t *seqNum, struct packetData **startPacket);
+void retransmitUnAckedData(int sockFD, struct packetData *pData);
 
-int main( void ){
+int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
     int nBytesLocal, nBytesProxy;
@@ -91,14 +93,14 @@ int main( void ){
 
     struct packetData *storedPackets;
     uint32_t sequenceNum;
-    uint32_t lastAckNum;
+    uint32_t receivedAckNum;
 
     printf("Starting up the server...\n");
 
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
     storedPackets = NULL;
     sequenceNum = 0;
-    lastAckNum = 0;
+    receivedAckNum = 0;
     
     //Keep relaying data between 2 sockets using select() or poll()
     //Keep proxy up until connection is dead
@@ -162,22 +164,29 @@ int main( void ){
                     //     printf("receiving out-of-band data from proxy!!\n");
                     // }
                     // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime)
+                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum)
                      == -1){
                         closeSession = 1;
                         break;
-                    }  
+                    }
+                    if(receivedAckNum != 0){
+                        eraseData(&storedPackets, receivedAckNum);
+                    }
+                    
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
                     //gettimeofday(&receiveTime, NULL);
                     // if(DEBUG){
                     //     printf("receiving normal data from proxy\n");
                     // }
                     // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); //Receive normal data
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime)
+                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum)
                      == -1){
                         closeSession = 1;
                         break;
-                    }  
+                    }
+                    if(receivedAckNum != 0){
+                        eraseData(&storedPackets, receivedAckNum);
+                    }
                 }
             }
             //SEND - NEED TO ADD HEADER
@@ -198,7 +207,6 @@ int main( void ){
                             printf("Sending out data to proxy\n");
                         }
                         //Normal
-                        addHeader(bufLocal, &nBytesLocal, DATA);
                         if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
@@ -298,6 +306,8 @@ int main( void ){
         break;
     }else{
         reconnectToProxy(&listenSockFD, &proxySockFD);
+        //New. Only retransmit after known connection loss
+        retransmitUnAckedData(proxySockFD, storedPackets);
     }
     
     }//End for(;;)
@@ -374,7 +384,7 @@ void sendHeartBeat(int pSockFD){
     }
     char bufHeart[MAX_BUFFER_SIZE];
     int nBytesHeart = 0;
-    addHeader(bufHeart, &nBytesHeart, HEARTBEAT);
+    addHeader(bufHeart, &nBytesHeart, HEARTBEAT, 0, 0);
     if(sendall(pSockFD, bufHeart, &nBytesHeart, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesHeart);
@@ -387,17 +397,16 @@ void sendAck(int pSockFD){
     }
     char bufAck[MAX_BUFFER_SIZE];
     int nBytesAck = 0;
-    addHeader(bufAck, &nBytesAck, ACK);
+    addHeader(bufAck, &nBytesAck, ACK, 0, 0);
     if(sendall(pSockFD, bufAck, &nBytesAck, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesAck);
     }
 }
 
-void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag){
+void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum){
     int type;
-    type = removeHeader(buffer, nBytes);
-    //type = DATA;
+    type = removeHeader(buffer, nBytes, ackNum);
     if(type == HEARTBEAT){
         if(DEBUG){
             printf("Recieved a heartbeat, time to send ACK\n");
@@ -429,7 +438,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
     }
 }
 
-int removeHeader(char *buffer, int *nBytes){
+int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum){
     struct customHdr *cHdr;
     int type;
     char tempBuf[MAX_BUFFER_SIZE];
@@ -438,8 +447,9 @@ int removeHeader(char *buffer, int *nBytes){
     
     //Process Header
     type = cHdr->type;
+    *ackNum = ntohl(cHdr->ackNum);
     if(DEBUG){
-        printf("Type was found out to be %d\n", type);
+        printf("Type was found out to be %d with ackNum %d\n", type, *ackNum);
     }
 
     //Remove header
@@ -450,7 +460,7 @@ int removeHeader(char *buffer, int *nBytes){
     return type;
 }
 
-int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime){
+int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum){
     if(flag){
         //Then OOB
         if(DEBUG){
@@ -477,20 +487,20 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
         if(DEBUG){
             printf("Just recieved %d bytes\n", *nBytes);
         }
-        processReceivedHeader(sockFD, buffer, numTimeouts, sendTo, isOOB, nBytes, flag);                  
+        processReceivedHeader(sockFD, buffer, numTimeouts, sendTo, isOOB, nBytes, flag, ackNum);                  
     }
     
     return 0;
 }
 
-void addHeader(void *buffer, int *nBytes, uint8_t type){
+void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum){
     struct customHdr cHdr;
     char tempBuf[MAX_BUFFER_SIZE];
 
     //Set header values
     cHdr.type = type;
-    cHdr.seqNum = 0;
-    cHdr.ackNum = 0;
+    cHdr.seqNum = htonl(seqNum);
+    cHdr.ackNum = htonl(ackNum);
     cHdr.payloadLength = *nBytes;
 
     //Copy header to buffer
@@ -503,8 +513,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type){
     (*nBytes) += sizeof(struct customHdr); 
     memcpy(buffer, tempBuf, *nBytes);
     if(DEBUG){
-        unsigned char *temp = (unsigned char*)buffer;
-        printf("Just added a header of type %d\n", *temp);
+        printf("Just added header %d, seq:%d, ack:%d\n", type, seqNum, ackNum);
     }
 }
 
@@ -580,9 +589,10 @@ void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, in
         (*startPacket) = (struct packetData *)malloc(sizeof(struct packetData));
         (*startPacket)->next = NULL;
         (*startPacket)->id = id;
+        (*startPacket)->size = nBytes;
         memcpy((*startPacket)->data, buffer, nBytes);
         if(DEBUG){
-            printf("Just stored packet with id %d\n", (*startPacket)->id);
+            printf("Just stored packet with id %d of size %d\n", (*startPacket)->id, (*startPacket)->size);
         }
     }else{
         addData(*startPacket, buffer, id, nBytes);
@@ -597,6 +607,7 @@ void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes){
         struct packetData *newData = pData->next;
         newData->next = NULL;
         newData->id = id;
+        newData->size = nBytes;
         memcpy(newData->data, buffer, nBytes);
         if(DEBUG){
             printf("Just stored packet with id %d\n", newData->id);
@@ -621,8 +632,12 @@ void eraseData(struct packetData **startPacket, uint32_t id){
 struct packetData *deleteData(struct packetData *pData, uint32_t id){
     struct packetData *tempData;
     tempData = pData->next;
-
-    if(pData->id == id){
+    if(pData->id > id){
+        if(DEBUG){
+            printf("Received an id to remove that is smaller than first!\n");
+        }
+        return pData;
+    }else if(pData->id == id){
         free(pData);
         return tempData;
     }else if(tempData == NULL){
@@ -662,12 +677,30 @@ int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sen
         }else{
             *isOOB = 0;
         }
-    }
 
-    //Store
-    // rememberData(startPacket, buffer, *seqNum, *nBytes);
-    // (*seqNum)++;
+        //Store
+        addHeader(buffer, nBytes, DATA, *seqNum, 0);
+        rememberData(startPacket, buffer, *seqNum, *nBytes);
+        (*seqNum)++;
+    }
 
     return 0;
 
+}
+
+void retransmitUnAckedData(int sockFD, struct packetData *pData){
+    if(pData != NULL){
+        
+        int nBytes = pData->size;
+        if(sendall(sockFD, pData->data, &nBytes, 0) == -1){
+            perror("Error with send\n");
+            printf("Only sent %d bytes because of error!\n", nBytes);
+        }
+        if(DEBUG){
+            printf("Retransmitted a packet of size %d\n", nBytes);
+        }
+
+        retransmitUnAckedData(sockFD, pData->next);
+    }
+    //else return
 }
