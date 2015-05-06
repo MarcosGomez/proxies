@@ -245,20 +245,12 @@ int main( int argc, char *argv[] ){
             }else{
                 //RECEIVE - NEED TO CHECK AND REMOVE HEADER
                 if(pollFDs[PROXY_POLL].revents & POLLPRI){
-                    // if(DEBUG){
-                    //     printf("receiving out-of-band data from proxy!!\n");
-                    // }
-                    // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
                      == -1){
                         closeSession = 1;
                         break;
                     }  
                 }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    // if(DEBUG){
-                    //     printf("receiving normal data from proxy\n");
-                    // }
-                    // nBytesProxy = recv(proxySockFD, bufProxy, sizeof(bufProxy) - sizeof(struct customHdr), 0); 
                     if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
                      == -1){
                         closeSession = 1;
@@ -338,8 +330,8 @@ void error(char *msg){
 }
 
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress){
-    int localSockFD,/* proxySockFD,*/ listenSockFD;
-    struct sockaddr_in localAddr/*, proxyAddr*/;
+    int localSockFD, listenSockFD;
+    struct sockaddr_in localAddr;
     struct sockaddr_storage connectingAddr;
     socklen_t addrLen;
     int option = 1;
@@ -493,7 +485,15 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
     if(ntohl(cHdr->seqNum) > *seqNum){
         *seqNum = ntohl(cHdr->seqNum);
     }else{
-        printf("Ignored seq number %d because too low\n", ntohl(cHdr->seqNum));
+        if(DEBUG){
+            printf("Ignored seq number %d because too low\n", ntohl(cHdr->seqNum));
+        }
+        
+    }
+    if(ntohl(cHdr->seqNum) != ((*seqNum) + 1) && type == DATA){
+        if(DEBUG){
+            printf("Missing a packet!\n");
+        }
     }
     
     if(DEBUG){
