@@ -519,7 +519,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_
     (*nBytes) += sizeof(struct customHdr); 
     memcpy(buffer, tempBuf, *nBytes);
     if(DEBUG){
-        printf("Just added header %d, seq:%d, ack:%d\n", type, seqNum, ackNum);
+        printf("Just added header %d, seq:%d, ack:%d with total size %d\n", type, seqNum, ackNum, *nBytes);
     }
 }
 
