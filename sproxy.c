@@ -247,16 +247,16 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
             //SEND
             if(sendToLocal){
                 if(pollFDs[LOCAL_POLL].revents & POLLOUT){
-                    if(isOOBLocal){
-                        if(DEBUG){
-                            printf("Sending out out-of-band data to local\n");
-                        }
-                        if(sendall(localSockFD, bufProxy, &nBytesProxy, MSG_OOB) == -1){
-                            perror("Error with send\n");
-                            printf("Only sent %d bytes because of error!\n", nBytesProxy);
-                        }
-                        isOOBLocal = 0;
-                    }else{
+                    // if(isOOBLocal){
+                    //     if(DEBUG){
+                    //         printf("Sending out out-of-band data to local\n");
+                    //     }
+                    //     if(sendall(localSockFD, bufProxy, &nBytesProxy, MSG_OOB) == -1){
+                    //         perror("Error with send\n");
+                    //         printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                    //     }
+                    //     isOOBLocal = 0;
+                    // }else{
                         if(DEBUG){
                             printf("Sending out data to local\n");
                         }
@@ -265,7 +265,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesProxy);
                         }
-                    }
+                    //}
                     sendToLocal = 0;
                     notSentLocal = 0;
                 }else{
