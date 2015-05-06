@@ -405,6 +405,10 @@ int sendall(int s, char *buf, int *len, int flags)
 
     *len = total; // return number actually sent here
 
+    if(DEBUG){
+        printf("Sent out a total of %d bytes\n", total);
+    }
+
     return n==-1?-1:0; // return -1 on failure, 0 on success
 }
 
