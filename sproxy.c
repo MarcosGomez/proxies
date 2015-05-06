@@ -452,7 +452,7 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum){
     type = cHdr->type;
     *ackNum = ntohl(cHdr->ackNum);
     if(DEBUG){
-        printf("Type was found out to be %d with ackNum %d\n", type, *ackNum);
+        printf("Received packet of type %d with ackNum %d:%d\n", type, *ackNum, cHdr->ackNum);
     }
 
     //Remove header
@@ -583,7 +583,7 @@ void reconnectToProxy(int *listenSock, int *proxySock){
 
 void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes){
     if(DEBUG){
-        printf("Remember data with id: %d\n", id);
+        printf("Remembering data with id: %d\n", id);
     }
     if(*startPacket == NULL){
         if(DEBUG){
@@ -641,12 +641,18 @@ struct packetData *deleteData(struct packetData *pData, uint32_t id){
         }
         return pData;
     }else if(pData->id == id){
+        if(DEBUG){
+            printf("Deleted last packet\n");
+        }
         free(pData);
         return tempData;
     }else if(tempData == NULL){
         perror("Packet to delete doesn't exit in the list!!\n");
         return NULL;
     }else{
+        if(DEBUG){
+            printf("Deleted a packet\n");
+        }
         free(pData);
         return deleteData(tempData, id);
     }
