@@ -508,8 +508,8 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
 int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
     struct customHdr *cHdr;
     int type;
-    uint32_t pLength;
     char tempBuf[MAX_BUFFER_SIZE];
+    uint32_t pLength;
 
     cHdr = (struct customHdr *) buffer;
     
