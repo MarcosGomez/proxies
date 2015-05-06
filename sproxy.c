@@ -99,7 +99,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
 
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
     storedPackets = NULL;
-    sequenceNum = 0;
+    sequenceNum = 1;
     receivedAckNum = 0;
     closeSession = 0;
     
