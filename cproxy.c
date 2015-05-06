@@ -474,7 +474,7 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
     type = cHdr->type;
     *seqNum = ntohl(cHdr->seqNum);
     if(DEBUG){
-        printf("Type was found out to be %d with seqNum %d\n", type, *seqNum);
+        printf("Received packet of type %d with seqNum %d\n", type, *seqNum);
     }
 
     //Remove header
