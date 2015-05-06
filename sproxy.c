@@ -308,7 +308,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
         reconnectToProxy(&listenSockFD, &proxySockFD);
         //New. Only retransmit after known connection loss
         if(DEBUG){
-            printf("receivedAckNum = %d", receivedAckNum);
+            printf("receivedAckNum = %d and sequenceNum = %d\n", receivedAckNum, sequenceNum);
         }
         retransmitUnAckedData(proxySockFD, storedPackets);
     }
