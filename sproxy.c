@@ -311,7 +311,7 @@ int main( void ){// STILL NEED TO ERASE STORED PACKETS!!!!!!!!!!!
         if(DEBUG){
             printf("receivedAckNum = %d and sequenceNum = %d\n", receivedAckNum, sequenceNum);
         }
-        retransmitUnAckedData(proxySockFD, storedPackets);
+        //retransmitUnAckedData(proxySockFD, storedPackets);
     }
     
     }//End for(;;)

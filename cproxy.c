@@ -308,10 +308,11 @@ int main( int argc, char *argv[] ){
     if(closeSession){
         break;
     }else{
+        
+        reconnectToProxy(&proxySockFD, argv[1]);
         if(DEBUG){
             printf("Last received seqNum is %d\n", receivedSeqNum);
         }
-        reconnectToProxy(&proxySockFD, argv[1]);
     }
     
     
