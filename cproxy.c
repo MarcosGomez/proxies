@@ -455,7 +455,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         if(DEBUG){
             printf("Received normal data\n");
         }
-        if(pastSeqNum >= seqNum){
+        if(pastSeqNum >= *seqNum){
             //Then don't send it out
         }else{
             *sendTo = 1;
