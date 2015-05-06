@@ -152,7 +152,7 @@ int main( int argc, char *argv[] ){
                 break;
             }else{
                 //Send out hearbeat message
-                sendHeartBeat(proxySockFD);
+                sendHeartBeat(proxySockFD, receivedSeqNum);
             }
         }else{
             //Check local events
@@ -404,26 +404,26 @@ int sendall(int s, char *buf, int *len, int flags)
     return n==-1?-1:0; // return -1 on failure, 0 on success
 }
 
-void sendHeartBeat(int pSockFD){
+void sendHeartBeat(int pSockFD, uint32_t ackNum){
     if(DEBUG){
         printf("Sending heartbeat\n");
     }
     char bufHeart[MAX_BUFFER_SIZE];
     int nBytesHeart = 0;
-    addHeader(bufHeart, &nBytesHeart, HEARTBEAT, 0, 0);
+    addHeader(bufHeart, &nBytesHeart, HEARTBEAT, 0, ackNum);
     if(sendall(pSockFD, bufHeart, &nBytesHeart, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesHeart);
     }
 }
 
-void sendAck(int pSockFD){
+void sendAck(int pSockFD, uint32_t ackNum){
     if(DEBUG){
         printf("Sending ack to heartbeat\n");
     }
     char bufAck[MAX_BUFFER_SIZE];
     int nBytesAck = 0;
-    addHeader(bufAck, &nBytesAck, ACK, 0, 0);
+    addHeader(bufAck, &nBytesAck, ACK, 0, ackNum);
     if(sendall(pSockFD, bufAck, &nBytesAck, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesAck);
@@ -437,7 +437,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         if(DEBUG){
             printf("Recieved a heartbeat, time to send ACK\n");
         }
-        sendAck(sockFD);
+        sendAck(sockFD, *seqNum);
     }else if(type == INIT){
         if(DEBUG){
             printf("Recieved a new connection initiation, which shouldn't happen on client\n");
@@ -472,7 +472,12 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *seqNum){
     
     //Process Header
     type = cHdr->type;
-    *seqNum = ntohl(cHdr->seqNum);
+    if(ntohl(cHdr->seqNum) > *seqNum){
+        *seqNum = ntohl(cHdr->seqNum);
+    }else{
+        printf("Ignored seq number %d because too low\n", ntohl(cHdr->seqNum));
+    }
+    
     if(DEBUG){
         printf("Received packet of type %d with seqNum %d\n", type, *seqNum);
     }

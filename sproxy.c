@@ -450,9 +450,11 @@ int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum){
     
     //Process Header
     type = cHdr->type;
-    *ackNum = ntohl(cHdr->ackNum);
+    //if(ntohl(cHdr->ackNum) > *ackNum){
+        *ackNum = ntohl(cHdr->ackNum);
+    //}
     if(DEBUG){
-        printf("Received packet of type %d with ackNum %d:%d\n", type, *ackNum, cHdr->ackNum);
+        printf("Received packet of type %d with ackNum %d\n", type, *ackNum);
     }
 
     //Remove header
