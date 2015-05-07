@@ -451,10 +451,8 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         buffer += pLoadLength;
 
         if(type == DATA){
-            *sendTo = 1;
             pastType = DATA;
-        }
-        if(type == HEARTBEAT){
+        }else if(type == HEARTBEAT){
             if(DEBUG){
                 printf("Recieved a heartbeat, time to send ACK\n");
             }
@@ -464,48 +462,54 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
                 printf("received ACK\n");
             }
             *numTimeouts = 0;
+        }else if(type == INIT){
+            if(DEBUG){
+                printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+            }
+        }else{
+            perror("Received unknown type of header!\n");
+            pastType = -1;
+            *seqNum = pastSeqNum;
         }
     }while(rVal >= 0);
     
-    
-
-    if(type == HEARTBEAT){
-        // if(DEBUG){
-        //     printf("Recieved a heartbeat, time to send ACK\n");
-        // }
-        //sendAck(sockFD, *seqNum);
-    }else if(type == INIT){
-        if(DEBUG){
-            printf("Recieved a new connection initiation, which shouldn't happen on client\n");
-        }
-    }else if(pastType == DATA){
+    if(pastType == DATA){
         if(DEBUG){
             printf("Received normal data\n");
         }
-        // if(pastSeqNum >= *seqNum){
-        //     //Then don't send it out
-        //     if(DEBUG){
-        //         printf("Not sending out this packet because seqNum too low!\n");
-        //     }
-        // }else{
+        if(pastSeqNum >= *seqNum){
+            //Then don't send it out
+            if(DEBUG){
+                printf("Not sending out this packet because seqNum too low!\n");
+            }
+        }else{
             *sendTo = 1;
             if(flag){
                 *isOOB = 1;
             }else{
                 *isOOB = 0;
             }
-        //}
-        
-        
-    }else if(type == ACK){
-        // if(DEBUG){
-        //     printf("received ACK\n");
-        // }
-        // *numTimeouts = 0;
-    }else{
-        perror("Received unknown type of header!\n");
-        *seqNum = pastSeqNum;
+        }
     }
+
+    // if(type == HEARTBEAT){
+    //     // if(DEBUG){
+    //     //     printf("Recieved a heartbeat, time to send ACK\n");
+    //     // }
+    //     //sendAck(sockFD, *seqNum);
+    // }else if(type == INIT){
+    //     if(DEBUG){
+    //         printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+    //     }
+    // }else if(type == ACK){
+    //     // if(DEBUG){
+    //     //     printf("received ACK\n");
+    //     // }
+    //     // *numTimeouts = 0;
+    // }else if(type != HEARTBEAT && type != INIT && type != DATA && type != ACK){
+    //     perror("Received unknown type of header!\n");
+    //     *seqNum = pastSeqNum;
+    // }
 }
 
 int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
