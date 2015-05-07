@@ -324,6 +324,9 @@ int main( void ){
     }
     
     if(closeSession){
+        if(DEBUG){
+            printf("Breaking because session closed\n");
+        }
         break;
     }else{
         //reconnectToProxy(&listenSockFD, &proxySockFD);
@@ -368,6 +371,7 @@ int main( void ){
     
     }//End for(;;)
     close(localSockFD);
+    close(listenSockFD);
 
     printf("sproxy is finished\n");
     }//while(1)
