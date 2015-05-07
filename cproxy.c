@@ -303,12 +303,21 @@ int main( int argc, char *argv[] ){
     if(closeSession){
         break;
     }else{
-        char nothingBuf[1];
+        char nothingBuf[MAX_BUFFER_SIZE];
+        int rVal;
         while(reconnectOnceToProxy(&proxySockFD, argv[1]) != 0){
+            if(DEBUG){
+                printf("Checking if local socket is closed\n");
+            }
             //Check if local connection closes
-            if (recv(localSockFD, nothingBuf, sizeof(nothingBuf), MSG_PEEK | MSG_DONTWAIT) == 0){
+            rVal = recv(localSockFD, nothingBuf, sizeof(nothingBuf), MSG_PEEK | MSG_DONTWAIT);
+            if (rVal == 0){
                 closeSession = 1;
                 break;
+            }else{
+                if(DEBUG){
+                    printf("Still connected, but rVal = %d\n", rVal);
+                }
             }
         }
         
