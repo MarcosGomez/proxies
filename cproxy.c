@@ -60,7 +60,7 @@ struct tcpheader {
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 16384
-#define WAITTIME 10000
+#define WAITTIME 5000
 
 #define HEARTBEAT 0
 #define INIT 1
@@ -323,7 +323,7 @@ int main( int argc, char *argv[] ){
                 printf("Checking if local socket is closed\n");
             }
             
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_DONTWAIT); //Receive normal data
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
                     if(nBytesLocal == -1){
                         perror("recv error\n");
                     }else if(nBytesLocal == 0){
