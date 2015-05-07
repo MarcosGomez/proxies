@@ -330,7 +330,7 @@ int main( void ){
         }
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
-            close(listenSOckFD);
+            close(listenSockFD);
             retransmitUnAckedData(proxySockFD, storedPackets);
         }else{
             isProxyConnection = 0;
