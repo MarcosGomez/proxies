@@ -26,7 +26,7 @@
 #define PROXY_POLL 1
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
-#define MAX_BUFFER_SIZE 4096
+#define MAX_BUFFER_SIZE 16384
 
 #define HEARTBEAT 0
 #define INIT 1
@@ -599,7 +599,7 @@ int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *ackNum){
         }
         return pLength;
     }else if(*nBytes < pLength){
-        perror("There is something wrong with payloadLength!!\n");
+        perror("There is something wrong with payloadLength!! Number of bytes left is %d, but payloadLength is %d\n", *nBytes, pLength);
     }
     return -1;
 }

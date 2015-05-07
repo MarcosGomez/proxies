@@ -551,7 +551,7 @@ int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
         }
         return pLength;
     }else if(*nBytes < pLength){
-        perror("There is something wrong with payloadLength!!\n");
+        perror("There is something wrong with payloadLength!! Number of bytes left is %d, but payloadLength is %d\n", *nBytes, pLength);
     }
     return -1;
 }
