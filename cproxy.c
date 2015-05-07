@@ -229,6 +229,8 @@ int main( int argc, char *argv[] ){
                 }else{
                     notSentLocal = 1;
                 }
+            }else{
+                printf("DONT NEED TO SEND DATA TO LOCLA\n");
             }
             if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
             pollFDs[LOCAL_POLL].revents & POLLNVAL ){
