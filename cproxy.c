@@ -6,7 +6,6 @@
 // 
 // Telnet into cproxy using "telnet localhost 5200"
 
-//NEED TO PARSE THROUGH RECEIVED BUFFER TO DIFFERENTIATE DIFF PACKETS
 
 //Main Points
 //X) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
