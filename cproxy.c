@@ -322,6 +322,13 @@ int main( int argc, char *argv[] ){
     return 0;
 }
 
+
+
+
+
+
+
+
 void usage(char *argv[]){
     fprintf(stdout, "Usage: %s w.x.y.z   ~eth1 IP address of the Server(was 192.168.8.2)\n", argv[0]);
     exit(1);
@@ -667,7 +674,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         }
         //Wait one sec
         pollFD.fd = proxySockFD;
-        pollFD.events = POLLIN;
+        pollFD.events = 0;
         
         poll(&pollFD, 1, WAITTIME);
         i += WAITTIME/1000;
