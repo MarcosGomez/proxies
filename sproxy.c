@@ -1005,13 +1005,13 @@ int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeout
     if(flag){
         //Then OOB
         if(DEBUG){
-            printf("receiving out-of-band data from proxy\n");
+            printf("receiving out-of-band data from proxy NOT HERE\n");
         }
         *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
     }else{
         //Normal
         if(DEBUG){
-            printf("receiving normal data from proxy\n");
+            printf("receiving normal data from proxy to check\n");
         }
         *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     }
