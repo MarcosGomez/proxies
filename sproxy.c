@@ -442,6 +442,63 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
     // }else{
     //     perror("Received unknown type of header\n");
     // }
+
+    int type;
+    int pastType = -1;
+    //uint32_t pastSeqNum = *seqNum;
+    int tempNBytes = *nBytes;
+    uint32_t pLoadLength;
+    int rVal;
+
+    //Remove multiple headers on same buffer
+    do{
+        rVal = removeHeader(buffer, &tempNBytes, &type, ackNum);
+        pLoadLength = rVal;
+        (*nBytes) -= sizeof(struct customHdr);
+        tempNBytes -= pLoadLength;
+        buffer += pLoadLength;
+
+        if(type == DATA){
+            pastType = DATA;
+        }else if(type == HEARTBEAT){
+            if(DEBUG){
+                printf("Recieved a heartbeat, time to send ACK\n");
+            }
+            sendAck(sockFD);
+        }else if(type == ACK){
+            if(DEBUG){
+                printf("received ACK\n");
+            }
+            *numTimeouts = 0;
+        }else if(type == INIT){
+            if(DEBUG){
+                printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+            }
+        }else{
+            perror("Received unknown type of header!\n");
+            pastType = -1;
+            //*seqNum = pastSeqNum;
+        }
+    }while(rVal >= 0);
+    
+    if(pastType == DATA){
+        if(DEBUG){
+            printf("Received normal data\n");
+        }
+        // if(pastSeqNum >= *seqNum){
+        //     //Then don't send it out
+        //     if(DEBUG){
+        //         printf("Not sending out this packet because seqNum too low!\n");
+        //     }
+        // }else{
+            *sendTo = 1;
+            if(flag){
+                *isOOB = 1;
+            }else{
+                *isOOB = 0;
+            }
+        //}
+    }
 }
 
 int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *ackNum){
