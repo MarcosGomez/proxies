@@ -712,7 +712,7 @@ int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress){
     int option  = 1;
     //Make a TCP connection to server port 6200(connect to sproxy)
     if(DEBUG){
-        printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
+        printf("Now trying to connect ONCE to server with eth1 IP addr: %s\n", serverEth1IPAddress);
     }
     proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(proxySockFD < 0){
@@ -731,8 +731,10 @@ int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress){
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
 
+    if(DEBUG){
+        printf("Now trying to attempting to connect to server\n");
+    }
     
-    printf("Now trying to attempting to connect to server\n");
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
     
     int rv;
