@@ -451,6 +451,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
         buffer += pLoadLength;
 
         if(type == DATA){
+            *sendTo = 1;
             pastType = DATA;
         }
         if(type == HEARTBEAT){
