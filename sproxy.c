@@ -101,6 +101,7 @@ int main( void ){
 
     int isProxyConnection; //bool
 
+    while(1){
     printf("Starting up the server...\n");
 
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
@@ -369,8 +370,13 @@ int main( void ){
     close(localSockFD);
 
     printf("sproxy is finished\n");
+    }//while(1)
     return 0;
 }
+
+
+
+
 
 void usage(char *argv[]){
     fprintf(stdout, "Usage: %s w.x.y.z   ~eth1 IP address of the Server(was 192.168.8.2)\n", argv[0]);
