@@ -64,7 +64,7 @@ int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD);
 void sendAck(int pSockFD);
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
-int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum);
+int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *ackNum);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum);
 void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum);
 void reconnectToProxy(int *listenSock, int *proxySock);
@@ -411,65 +411,111 @@ void sendAck(int pSockFD){
 }
 
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum){
-    int type;
-    type = removeHeader(buffer, nBytes, ackNum);
-    if(type == HEARTBEAT){
-        if(DEBUG){
-            printf("Recieved a heartbeat, time to send ACK\n");
-        }
-        sendAck(sockFD);
-    }else if(type == INIT){
-        if(DEBUG){
-            printf("Recieved a new connection initiation, which should happen on server\n");
-        }
-        printf("Need to create new connection to local telnet\n");
-    }else if(type == DATA){
-        if(DEBUG){
-            printf("Received normal data\n");
-        }
-        *sendTo = 1;
-        if(flag){
-            *isOOB = 1;
-        }else{
-            *isOOB = 0;
-        }
+    // int type;
+    // type = removeHeader(buffer, nBytes, ackNum);
+    // if(type == HEARTBEAT){
+    //     if(DEBUG){
+    //         printf("Recieved a heartbeat, time to send ACK\n");
+    //     }
+    //     sendAck(sockFD);
+    // }else if(type == INIT){
+    //     if(DEBUG){
+    //         printf("Recieved a new connection initiation, which should happen on server\n");
+    //     }
+    //     printf("Need to create new connection to local telnet\n");
+    // }else if(type == DATA){
+    //     if(DEBUG){
+    //         printf("Received normal data\n");
+    //     }
+    //     *sendTo = 1;
+    //     if(flag){
+    //         *isOOB = 1;
+    //     }else{
+    //         *isOOB = 0;
+    //     }
         
-    }else if(type == ACK){
-        if(DEBUG){
-            printf("received ACK\n");
-        }
-        *numTimeouts = 0;
-    }else{
-        perror("Received unknown type of header\n");
-    }
+    // }else if(type == ACK){
+    //     if(DEBUG){
+    //         printf("received ACK\n");
+    //     }
+    //     *numTimeouts = 0;
+    // }else{
+    //     perror("Received unknown type of header\n");
+    // }
 }
 
-int removeHeader(char *buffer, int *nBytes, uint32_t *ackNum){
+int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *ackNum){
+    // struct customHdr *cHdr;
+    // int type;
+    // char tempBuf[MAX_BUFFER_SIZE];
+
+    // cHdr = (struct customHdr *) buffer;
+    
+    // //Process Header
+    // type = cHdr->type;
+    // if(ntohl(cHdr->ackNum) > *ackNum){
+    //     *ackNum = ntohl(cHdr->ackNum);
+    // }else{
+    //     if(DEBUG){
+    //         printf("ignored packet ackNum because too small!\n");
+    //     }
+    // }
+    // if(DEBUG){
+    //     printf("Received packet of type %d with ackNum %d\n", type, *ackNum);
+    // }
+
+    // //Remove header
+    // memcpy(tempBuf, buffer, *nBytes);
+    // (*nBytes) -= sizeof(struct customHdr);
+    // memcpy(buffer, tempBuf + sizeof(struct customHdr), *nBytes);
+    
+    // return type;
+
+
     struct customHdr *cHdr;
     int type;
     char tempBuf[MAX_BUFFER_SIZE];
+    uint32_t pLength;
 
     cHdr = (struct customHdr *) buffer;
     
     //Process Header
     type = cHdr->type;
+    pLength = ntohl(cHdr->payloadLength);
     if(ntohl(cHdr->ackNum) > *ackNum){
         *ackNum = ntohl(cHdr->ackNum);
     }else{
         if(DEBUG){
-            printf("ignored packet ackNum because too small!\n");
+            printf("ignored ackNum because too small!\n");
         }
     }
+
+    // if(ntohl(cHdr->seqNum) != ((*seqNum) + 1) && type == DATA){
+    //     if(DEBUG){
+    //         printf("Missing a packet!\n");
+    //     }
+    // }
+    
     if(DEBUG){
-        printf("Received packet of type %d with ackNum %d\n", type, *ackNum);
+        printf("Received packet of type %d with seqNum %d and payload size %d\n", type, *ackNum, pLength);
     }
 
     //Remove header
     memcpy(tempBuf, buffer, *nBytes);
     (*nBytes) -= sizeof(struct customHdr);
     memcpy(buffer, tempBuf + sizeof(struct customHdr), *nBytes);
-    
-    return type;
+
+    *rType = type;
+
+    if(*nBytes > pLength){
+        if(DEBUG){
+            printf("This buffer contains another header. payload of size %d but %d bytes left\n", pLength, *nBytes);
+        }
+        return pLength;
+    }else if(*nBytes < pLength){
+        perror("There is something wrong with payloadLength!!\n");
+    }
+    return -1;
 }
 
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum){
