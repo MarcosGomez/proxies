@@ -102,6 +102,7 @@ int main( void ){
     printf("Starting up the server...\n");
 
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
+    close(listenSockFD);
     isProxyConnection = 1;
     storedPackets = NULL;
     sequenceNum = 1;
@@ -314,7 +315,7 @@ int main( void ){
         //Do this once for each connection loss
         //Close sockets
         close(proxySockFD);
-        close(listenSockFD);
+        //close(listenSockFD);
 
         listenForReconnect(&listenSockFD);
     }
@@ -329,6 +330,7 @@ int main( void ){
         }
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
+            close(listenSOckFD);
             retransmitUnAckedData(proxySockFD, storedPackets);
         }else{
             isProxyConnection = 0;
