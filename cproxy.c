@@ -59,7 +59,7 @@ struct tcpheader {
 #define PROXY_POLL 1
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
-#define MAX_BUFFER_SIZE 4096
+#define MAX_BUFFER_SIZE 16384
 #define WAITTIME 10000
 
 #define HEARTBEAT 0
