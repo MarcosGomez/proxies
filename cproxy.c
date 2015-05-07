@@ -86,6 +86,7 @@ int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum);
 void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_t ackNum);
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress);
+int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress);
 
 
 //Using telnet localhost 5200 to connect here
@@ -302,11 +303,16 @@ int main( int argc, char *argv[] ){
     if(closeSession){
         break;
     }else{
-        
-        reconnectToProxy(&proxySockFD, argv[1]);
-        if(DEBUG){
-            printf("Last received seqNum is %d\n", receivedSeqNum);
+        char nothingBuf[1];
+        while(reconnectOnceToProxy(&proxySockFD, argv[1]) != 0){
+            //Check if local connection closes
+            if (recv(localSockFD, nothingBuf, sizeof(nothingBuf), MSG_PEEK | MSG_DONTWAIT) == 0){
+                closeSession = 1;
+                break;
+            }
         }
+        
+        
     }
     
     
@@ -696,5 +702,67 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
 
     //Assign all file descriptors
     *proxySock = proxySockFD;
+}
+
+
+int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress){
+    int proxySockFD;
+    struct sockaddr_in proxyAddr;
+    struct pollfd pollFD;
+    int option  = 1;
+    //Make a TCP connection to server port 6200(connect to sproxy)
+    if(DEBUG){
+        printf("Now trying to connect to server with eth1 IP addr: %s\n", serverEth1IPAddress);
+    }
+    proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(proxySockFD < 0){
+        error("Error opening socket\n");
+    }
+    if(setsockopt(proxySockFD,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0)
+    {
+        printf("setsockopt failed\n");
+        close(proxySockFD);
+        exit(2);
+    }   
+
+    proxyAddr.sin_family = AF_INET;
+    proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
+    proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
+    memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
+
+
+    
+    printf("Now trying to attempting to connect to server\n");
+    fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
+    
+    int rv;
+  
+    rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
+    if( rv == -1 ){
+        perror("Error connecting\n");
+    }
+    //Wait one sec
+    pollFD.fd = proxySockFD;
+    pollFD.events = POLLIN;
+        
+    if(DEBUG){
+        printf("Will been try to reconnect in 10 seconds (Can take up to 3 min)\n");
+    }
+    poll(&pollFD, 1, WAITTIME);
+
+    
+    
+
+    //Assign all file descriptors
+    *proxySock = proxySockFD;
+
+    if(rv == -1){
+        return -1;
+    }else{
+        if(DEBUG){
+            printf("Now connected to server side\n");
+        }
+        return 0;
+    }
 }
 
