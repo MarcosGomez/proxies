@@ -337,7 +337,7 @@ int main( void ){
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
             close(listenSockFD);
-            if(checkIfInit(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum) == 0){
+            if(checkIfInit(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum) == 0){
                 if(DEBUG){
                     printf("Restarting telnet connection with server\n");
                 }
