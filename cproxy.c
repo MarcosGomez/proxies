@@ -381,7 +381,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     reconnectToProxy(proxySock, serverEth1IPAddress);
 
     //Send INIT packet
-    sendInit(proxySock);
+    sendInit(*proxySock);
 
     //Assign all file descriptors
     *localSock = localSockFD;
@@ -445,7 +445,7 @@ void sendInit(int pSockFD){
     addHeader(buf, &nBytes, INIT, 0, 0);
     if(sendall(pSockFD, buf, &nBytes, 0) == -1){
         perror("Error with send\n");
-        printf("Only sent %d bytes because of error!\n", nBytesHeart);
+        printf("Only sent %d bytes because of error!\n", nBytes);
     }
 }
 
