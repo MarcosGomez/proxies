@@ -543,7 +543,7 @@ int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
 
     if(*nBytes > pLength){
         if(DEBUG){
-            printf("This buffer contains another header\n");
+            printf("This buffer contains another header. payload of size %d but %d bytes left\n", pLength, *nBytes);
         }
         return pLength;
     }else if(*nBytes < pLength){
