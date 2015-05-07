@@ -674,7 +674,7 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         }
         //Wait one sec
         pollFD.fd = proxySockFD;
-        pollFD.events = 0;
+        pollFD.events = POLLIN;
         
         poll(&pollFD, 1, WAITTIME);
         i += WAITTIME/1000;
