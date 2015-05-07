@@ -76,6 +76,8 @@ int receiveLocalPacket(int sockFD, int *nBytes, int flag, char *buffer, int *sen
 void retransmitUnAckedData(int sockFD, struct packetData *pData);
 int retryProxyConnection(int *listenSock, int *proxySock);
 void listenForReconnect(int *listenSock);
+int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum);
+int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -331,7 +333,28 @@ int main( void ){
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
             close(listenSockFD);
-            retransmitUnAckedData(proxySockFD, storedPackets);
+            if(checkIfInit(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum) == 0){
+                if(DEBUG){
+                    printf("Restarting telnet connection with server\n");
+                }
+                //Need to reset everything (eg linked list) and reconnect to local side
+                error("Pausing now. Not implemented yet\n");
+
+            }else{
+                if(DEBUG){
+                    printf("Sending out data to local because not an Init\n");
+                }
+                if(sendToLocal){
+                    //Normal
+                    if(sendall(localSockFD, bufProxy, &nBytesProxy, 0) == -1){
+                        perror("Error with send\n");
+                        printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                    }
+                }
+                retransmitUnAckedData(proxySockFD, storedPackets);
+            }
+            
+            
         }else{
             isProxyConnection = 0;
             if(DEBUG){
@@ -501,7 +524,7 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
             *numTimeouts = 0;
         }else if(type == INIT){
             if(DEBUG){
-                printf("Recieved a new connection initiation, which shouldn't happen on client\n");
+                printf("RECEIVED A NEW CONNECTION INITIATION\n");
             }
         }else{
             perror("Received unknown type of header!\n");
@@ -616,7 +639,6 @@ int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *num
         if(DEBUG){
             printf("receiving normal data from proxy\n");
         }
-        //printf("sockFD = %d, sizeof(buffer) = %d", sockFD, sizeof(buffer));
         *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     }
 
@@ -966,4 +988,106 @@ void listenForReconnect(int *listenSock){
     }
 
     *listenSock = listenSockFD;
+}
+
+//Recieve first packet and check if it's INIT
+int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum){
+    if(flag){
+        //Then OOB
+        if(DEBUG){
+            printf("receiving out-of-band data from proxy\n");
+        }
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+    }else{
+        //Normal
+        if(DEBUG){
+            printf("receiving normal data from proxy\n");
+        }
+        *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
+    }
+
+    gettimeofday(receiveTime, NULL);
+    *numTimeouts = 0;
+    if(*nBytes == -1){
+        perror("recv ERROR\n");
+        return -2;
+    }else if(*nBytes == 0){
+        printf("The proxy side closed the connection on you\n");
+        return -1;
+    }else{
+        if(DEBUG){
+            printf("Just recieved %d bytes\n", *nBytes);
+        }
+        return processHeaderForInit(sockFD, buffer, numTimeouts, sendTo, isOOB, nBytes, flag, ackNum);                  
+    }
+    
+}
+
+int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum){
+
+    int foundINIT = 0;
+
+    int type;
+    int pastType = -1;
+    int tempNBytes = *nBytes;
+    uint32_t pLoadLength;
+    int rVal;
+
+    //Remove multiple headers on same buffer
+    do{
+        rVal = removeHeader(buffer, &tempNBytes, &type, ackNum);
+        pLoadLength = rVal;
+        (*nBytes) -= sizeof(struct customHdr);
+        tempNBytes -= pLoadLength;
+        buffer += pLoadLength;
+
+        if(type == DATA){
+            pastType = DATA;
+        }else if(type == HEARTBEAT){
+            if(DEBUG){
+                printf("Recieved a heartbeat, time to send ACK\n");
+            }
+            sendAck(sockFD);
+        }else if(type == ACK){
+            if(DEBUG){
+                printf("received ACK\n");
+            }
+            *numTimeouts = 0;
+        }else if(type == INIT){
+            if(DEBUG){
+                printf("RECEIVED A NEW CONNECTION INITIATION\n");
+            }
+            foundINIT = 1;
+        }else{
+            perror("Received unknown type of header!\n");
+            pastType = -1;
+            //*seqNum = pastSeqNum;
+        }
+    }while(rVal >= 0);
+    
+    if(pastType == DATA){
+        if(DEBUG){
+            printf("Received normal data\n");
+        }
+        // if(pastSeqNum >= *seqNum){
+        //     //Then don't send it out
+        //     if(DEBUG){
+        //         printf("Not sending out this packet because seqNum too low!\n");
+        //     }
+        // }else{
+            *sendTo = 1;
+            if(flag){
+                *isOOB = 1;
+            }else{
+                *isOOB = 0;
+            }
+        //}
+    }
+
+    if(foundINIT){
+        return 0;
+    }else{
+        return -3;
+    }
+    
 }

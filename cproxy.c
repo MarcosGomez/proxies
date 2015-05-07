@@ -80,6 +80,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
 int sendall(int s, char *buf, int *len, int flags);
 void sendHeartBeat(int pSockFD, uint32_t ackNum);
 void sendAck(int pSockFD, uint32_t ackNum);
+void sendInit(int pSockFD);
 void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *seqNum);
 int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum);
 int receiveProxyPacket(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, uint32_t *seqNum);
@@ -107,7 +108,7 @@ int main( int argc, char *argv[] ){
     if(argc < 2){
         usage(argv);
     }
-    
+    while(1){
     printf("Starting up the client...\n");
     //Set up sockets
     setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
@@ -317,6 +318,7 @@ int main( int argc, char *argv[] ){
         printf("Last received seqNum is %d\n", receivedSeqNum);
         printf("cproxy is finished\n");
     }
+    }//End while(1)
     return 0;
 }
 
@@ -378,6 +380,9 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     //Make a TCP connection to server port 6200(connect to sproxy)
     reconnectToProxy(proxySock, serverEth1IPAddress);
 
+    //Send INIT packet
+    sendInit(proxySock);
+
     //Assign all file descriptors
     *localSock = localSockFD;
     *listenSock = listenSockFD;
@@ -428,6 +433,19 @@ void sendAck(int pSockFD, uint32_t ackNum){
     if(sendall(pSockFD, bufAck, &nBytesAck, 0) == -1){
         perror("Error with send\n");
         printf("Only sent %d bytes because of error!\n", nBytesAck);
+    }
+}
+
+void sendInit(int pSockFD){
+    if(DEBUG){
+        printf("Sending Initiation request\n");
+    }
+    char buf[MAX_BUFFER_SIZE];
+    int nBytes = 0;
+    addHeader(buf, &nBytes, INIT, 0, 0);
+    if(sendall(pSockFD, buf, &nBytes, 0) == -1){
+        perror("Error with send\n");
+        printf("Only sent %d bytes because of error!\n", nBytesHeart);
     }
 }
 
@@ -672,3 +690,4 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     //Assign all file descriptors
     *proxySock = proxySockFD;
 }
+
