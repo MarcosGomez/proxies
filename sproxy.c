@@ -362,7 +362,7 @@ int main( void ){
         }else{
             isProxyConnection = 0;
             if(DEBUG){
-                printf("Cannot connect to proxy now\n");
+                printf("Cannot connect to proxy, restarting server connection\n");
             }
         }
         
@@ -1011,7 +1011,7 @@ int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeout
     }else{
         //Normal
         if(DEBUG){
-            printf("receiving normal data from proxy to check\n");
+            printf("receiving data from proxy to check if init\n");
         }
         *nBytes = recv(sockFD, buffer, MAX_BUFFER_SIZE - sizeof(struct customHdr), 0); //Receive out-of-band data
     }
