@@ -781,7 +781,7 @@ int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress){
     pollFD.events = POLLIN;
         
     if(DEBUG){
-        printf("Will been try to reconnect in 10 seconds (Can take up to 3 min)\n");
+        printf("Will been try to reconnect in %d seconds (Can take up to 3 min)\n", WAITTIME/1000);
     }
     poll(&pollFD, 1, WAITTIME);
 
@@ -792,6 +792,7 @@ int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress){
     *proxySock = proxySockFD;
 
     if(rv == -1){
+        close(proxySockFD);
         return -1;
     }else{
         if(DEBUG){
