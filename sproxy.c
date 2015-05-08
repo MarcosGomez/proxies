@@ -329,6 +329,7 @@ int main( void ){
         if(DEBUG){
             printf("Breaking because session closed\n");
         }
+        eraseAllData(&storedPackets);
         break;
     }else{
         //reconnectToProxy(&listenSockFD, &proxySockFD);
@@ -338,16 +339,17 @@ int main( void ){
         }
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
-            close(listenSockFD);//EDIT retryProxyConnection so same listenSock
+            //close(listenSockFD);//EDIT retryProxyConnection so same listenSock
             if(checkIfInit(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum) == 0){
                 if(DEBUG){
                     printf("Restarting telnet connection with server\n");
                 }
                 //Need to reset everything (eg linked list) and reconnect to local side
                 eraseAllData(&storedPackets);
-                close(localSockFD);
                 close(proxySockFD);
-                //retryAgain = 1;
+                closeSession = 1;
+                break;
+                //startedWithInit = 1;
                 //error("Pausing now. Not implemented yet\n");
 
             }else{
@@ -925,11 +927,6 @@ int retryProxyConnection(int *listenSock, int *proxySock){
         printf("Now trying to accept connection\n");
     }
     listenSockFD = *listenSock;
-
-    // struct pollfd pollFD;
-    // printf("Now trying to attempting to connect to server\n");
-    // fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
-    
 
     pollFD.fd = listenSockFD;
     pollFD.events = POLLIN;
