@@ -60,7 +60,7 @@ struct tcpheader {
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 16384
-#define WAITTIME 10000
+#define WAITTIME 15000
 
 #define HEARTBEAT 0
 #define INIT 1
