@@ -312,6 +312,9 @@ int main( void ){
             }//end while
             if(isProxyConnection){
                 //Do this once for each connection loss
+                if(DEBUG){
+                    printf("SHOULD ONLY HAPPEN ONCE PER CONNECTION. closing proxySockFD\n");
+                }
                 close(proxySockFD);
 
                 listenForReconnect(&listenSockFD);
@@ -356,7 +359,7 @@ int main( void ){
                 }else{
                     isProxyConnection = 0;
                     if(DEBUG){
-                        printf("Cannot connect to proxy, restarting server connection\n");
+                        printf("Cannot connect to proxy now, checking for data from local\n");
                     }
                 }
             }
@@ -930,6 +933,8 @@ void listenForReconnect(int *listenSock){
 
 //Recieve first packet and check if it's INIT
 int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum){
+    //First send ack to establish connection
+    sendAck(sockFD);
     if(flag){
         //Then OOB
         if(DEBUG){
@@ -1057,7 +1062,6 @@ struct packetData *deleteAllData(struct packetData *pData){
 void setUpLocal(int *localSock){
     int localSockFD;
     struct sockaddr_in localAddr;
-    
     
     //Make a TCP connection to localhost(127.0.0.1)port 23 (Where telnet daemon is listening on)
     if(DEBUG){
