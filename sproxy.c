@@ -228,6 +228,12 @@ int main( void ){
                         if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
                         pollFDs[PROXY_POLL].revents & POLLNVAL ){
                             perror("Poll returned an ERROR from proxy\n");
+                            if(pollFDs[PROXY_POLL].revents & POLLNVAL){
+                                perror("The socket file desc is not open\n");
+                                closeSession = 1;
+                                break;
+                            }
+                            
                         }
                     }
                     
@@ -284,6 +290,9 @@ int main( void ){
                     if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
                     pollFDs[LOCAL_POLL].revents & POLLNVAL ){
                         perror("Poll returned an error from local\n");
+                        if(pollFDs[LOCAL_POLL].revents & POLLNVAL){
+                            perror("The socket file desc is not open\n");
+                        }
                     }
 
 
@@ -413,7 +422,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
         error("Error connecting\n");
     }
     if(DEBUG){
-        printf("Now connected to server side\n");
+        printf("Now connected to server side after restarting\n");
     }
 
     //Assign all file descriptors
@@ -1081,7 +1090,7 @@ void setUpLocal(int *localSock){
         error("Error connecting\n");
     }
     if(DEBUG){
-        printf("Now connected to server side\n");
+        printf("Now connected to server side (again with setUpLocal)\n");
     }
 
     //Assign all file descriptors
