@@ -198,6 +198,7 @@ int main( int argc, char *argv[] ){
                         }
                         sendToProxy = 1;
                         isOOBProxy = 1;
+                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
                     } 
                 }else if(pollFDs[LOCAL_POLL].revents & POLLIN){
                     if(DEBUG){
@@ -215,6 +216,7 @@ int main( int argc, char *argv[] ){
                             printf("Just recieved %d bytes\n", nBytesLocal);
                         }
                         sendToProxy = 1;
+                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
                     } 
                 }
             }
@@ -294,7 +296,7 @@ int main( int argc, char *argv[] ){
                             printf("Sending out data to proxy\n");
                         }
                         //Normal
-                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
+                        //addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
                         if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
                             perror("Error with send\n");
                             printf("Only sent %d bytes because of error!\n", nBytesLocal);
@@ -333,12 +335,14 @@ int main( int argc, char *argv[] ){
                 printf("The local side closed the connection on you\n");
                 closeSession = 1;
                 eraseAllData(&storedPackets);
+                close(proxySockFD);
                 break;
             }else{
                 if(DEBUG){
                     printf("Just recieved %d bytes\n", nBytesLocal);
                 }
                 //sendToProxy = 1;
+                addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
                 rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
             } 
             
@@ -820,7 +824,7 @@ void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, in
     }
     if(*startPacket == NULL){
         if(DEBUG){
-            printf("Adding first data\n");
+            printf("Remembering first data\n");
         }
         (*startPacket) = (struct packetData *)malloc(sizeof(struct packetData));
         (*startPacket)->next = NULL;
