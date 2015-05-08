@@ -419,11 +419,13 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock){
     memset(localAddr.sin_zero, '\0', sizeof(localAddr.sin_zero));
 
     if(connect(localSockFD, (struct sockaddr *) &localAddr, sizeof(localAddr)) < 0){
-        error("Error connecting\n");
+        error("Error connecting to local\n");
+    }else{
+        if(DEBUG){
+            printf("Now connected to server side after restarting\n");
+        }
     }
-    if(DEBUG){
-        printf("Now connected to server side after restarting\n");
-    }
+    
 
     //Assign all file descriptors
     *localSock = localSockFD;
@@ -653,7 +655,7 @@ void reconnectToProxy(int *listenSock, int *proxySock){
 
     listenSockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(listenSockFD < 0){
-        error("Error opening socket\n");
+        error("Error opening listen socket\n");
     }
     if(setsockopt(listenSockFD,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0)
     {
@@ -668,7 +670,7 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
 
     if(bind(listenSockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr)) < 0){
-        error("Error on binding\n");
+        error("Error on binding listen\n");
     }
 
     //Listen on port 6200 for incoming connection
@@ -713,12 +715,13 @@ void reconnectToProxy(int *listenSock, int *proxySock){
     addrLen = sizeof(connectingAddr);
     proxySockFD = accept(listenSockFD, (struct sockaddr *) &connectingAddr,  &addrLen); //This actually waits
     if(proxySockFD < 0){
-        error("Error accepting connection\n");
+        error("Error accepting connection to proxy\n");
+    }else{
+        if(DEBUG){
+            printf("Accepted a connection\n");
+        }
     }
-
-    if(DEBUG){
-        printf("Accepted a connection\n");
-    }
+    
 
     *listenSock = listenSockFD;
     *proxySock = proxySockFD;
