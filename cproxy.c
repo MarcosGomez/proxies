@@ -10,27 +10,12 @@
 //Main Points
 //X) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
 //X) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
-
-//3) No data loss. Need something like sequence/ack number to retransmit missing data.
-//4) Sproxy can tell difference between new session or continuation of old. Should restart
+//?) No data loss. Need something like sequence/ack number to retransmit missing data.
+//X) Sproxy can tell difference between new session or continuation of old. Should restart
 //   connection with telnet daemon if new.
 
-
-/*
-struct tcpheader {
- uint16_t th_sport;
- uint16_t th_dport;
- uint32_t th_seq;
- uint32_t th_ack;
- unsigned char th_x2:4, th_off:4;
- unsigned char th_flags;
- unsigned short int th_win;
- unsigned short int th_sum;
- unsigned short int th_urp;
-} __attribute__ ((packed)); // total tcp header length: 20 bytes (=160 bits) 
-*/
-
-
+//5)Project report that documents the design of the packet format and protocol actions.
+//6)10% extra credit for supporting multiple concurrent telnet sessions.
 
 
 #include <stdio.h>
@@ -60,7 +45,7 @@ struct tcpheader {
 #define NUM_OF_SOCKS 2
 #define TIMEOUT 1000
 #define MAX_BUFFER_SIZE 16384
-#define WAITTIME 15000
+#define WAITTIME 5000
 
 #define HEARTBEAT 0
 #define INIT 1
@@ -125,245 +110,239 @@ int main( int argc, char *argv[] ){
         usage(argv);
     }
     while(1){
-    printf("Starting up the client...\n");
-    //Set up sockets
-    setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
-    receivedSeqNum = 0;
-    closeSession = 0;
-    
-    //Keep relaying data between 2 sockets using select() or poll()
-    //Keep proxy up until connection is dead
-    for(;;){
-    pollFDs[LOCAL_POLL].fd = localSockFD;
-    pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
-
-    pollFDs[PROXY_POLL].fd = proxySockFD;
-    pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
-
-    sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
-    = numTimeouts = 0; //Initalize to false
-
-    //Mainloop
-    while(!closeSession){
-        //Only check for POLLOUT when necessary to use timeouts as hearbeats
-        if(sendToLocal){
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
-        }
-        if(sendToProxy){
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
-        }else{
-            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
-        }
-
-        returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
-        if(returnValue == -1){
-            error("poll Error\n");
-        }else if(returnValue == 0){
-            numTimeouts++;
-            printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
-            if(numTimeouts >= 3){
-                if(DEBUG){
-                    printf("Lost connection, time to close failed socket\n");
-                }
-                printf("Should have closed the proxy connection by now\n");
-                break;
-            }else{
-                //Send out hearbeat message
-                sendHeartBeat(proxySockFD, receivedSeqNum);
-            }
-        }else{
-            //Check local events
-            if(notSentLocal){
-                if(DEBUG){
-                    printf("Skipping recieve to wait to send past data for local\n");
-                }
-            }else{
-                //RECEIVE
-                if(pollFDs[LOCAL_POLL].revents & POLLPRI){
-                    if(DEBUG){
-                        printf("receiving out-of-band data from local!!\n");
-                    }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
-                    if(nBytesLocal == -1){
-                        perror("recv error\n");
-                    }else if(nBytesLocal == 0){
-                        printf("The local side closed the connection on you\n");
-                        closeSession = 1;
-                        break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesLocal);
-                        }
-                        sendToProxy = 1;
-                        isOOBProxy = 1;
-                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
-                    } 
-                }else if(pollFDs[LOCAL_POLL].revents & POLLIN){
-                    if(DEBUG){
-                        printf("receiving normal data from local\n");
-                    }
-                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
-                    if(nBytesLocal == -1){
-                        perror("recv error\n");
-                    }else if(nBytesLocal == 0){
-                        printf("The local side closed the connection on you\n");
-                        closeSession = 1;
-                        break;
-                    }else{
-                        if(DEBUG){
-                            printf("Just recieved %d bytes\n", nBytesLocal);
-                        }
-                        sendToProxy = 1;
-                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
-                    } 
-                }
-            }
-            //SEND
-            if(sendToLocal){
-                if(pollFDs[LOCAL_POLL].revents & POLLOUT){
-                    // if(isOOBLocal){
-                    //     if(DEBUG){
-                    //         printf("Sending out out-of-band data to local\n");
-                    //     }
-                    //     if(sendall(localSockFD, bufProxy, &nBytesProxy, MSG_OOB) == -1){
-                    //         perror("Error with send\n");
-                    //         printf("Only sent %d bytes because of error!\n", nBytesProxy);
-                    //     }
-                    //     isOOBLocal = 0;
-                    // }else{
-                        if(DEBUG){
-                            printf("Sending out data to local\n");
-                        }
-                        //Normal
-                        if(sendall(localSockFD, bufProxy, &nBytesProxy, 0) == -1){
-                            perror("Error with send\n");
-                            printf("Only sent %d bytes because of error!\n", nBytesProxy);
-                        }
-                    //}
-                    sendToLocal = 0;
-                    notSentLocal = 0;
-                }else{
-                    notSentLocal = 1;
-                }
-            }
-            if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
-            pollFDs[LOCAL_POLL].revents & POLLNVAL ){
-                perror("Poll returned an error from local\n");
-            }
-
-//---------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------
-
-            //Check proxy events - HEADER MANAGEMENT
-            if(notSentProxy){
-                if(DEBUG){
-                    printf("Skipping recieve to wait to send past data to proxy\n");
-                }
-            }else{
-                //RECEIVE - NEED TO CHECK AND REMOVE HEADER
-                if(pollFDs[PROXY_POLL].revents & POLLPRI){
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
-                     == -1){
-                        closeSession = 1;
-                        break;
-                    }  
-                }else if(pollFDs[PROXY_POLL].revents & POLLIN){
-                    if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
-                     == -1){
-                        closeSession = 1;
-                        break;
-                    }
-                }
-            }
-            //SEND - NEED TO ADD HEADER
-            if(sendToProxy){
-                if(pollFDs[PROXY_POLL].revents & POLLOUT){
-                    //if(isOOBProxy){
-                        // if(DEBUG){
-                        //     printf("Sending out out-of-band data to proxy\n");
-                        // }
-                        // addHeader(bufLocal, &nBytesLocal, DATA);
-                        // if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
-                        //     perror("Error with send\n");
-                        //     printf("Only sent %d bytes because of error!\n", nBytesLocal);
-                        // }
-                        // isOOBProxy = 0;
-                    //}else{
-                        if(DEBUG){
-                            printf("Sending out data to proxy\n");
-                        }
-                        //Normal
-                        //addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
-                        if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
-                            perror("Error with send\n");
-                            printf("Only sent %d bytes because of error!\n", nBytesLocal);
-                        }
-                    //}
-                    sendToProxy = 0;
-                    notSentProxy = 0;
-                }else{
-                    notSentProxy = 1;
-                }
-            }
-            if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
-            pollFDs[PROXY_POLL].revents & POLLNVAL ){
-                perror("Poll returned an ERROR from proxy\n");
-
-            }
-        }
-    }
-    //Close sockets
-    close(proxySockFD);
-    if(closeSession){
-        break;
-    }else{
-        // char nothingBuf[MAX_BUFFER_SIZE];
-        // int rVal;
-        setProxySocket(&proxySockFD);
-        while(tryToConnect(proxySockFD, argv[1]) != 0){
-            if(DEBUG){
-                printf("Checking if local socket is closed\n");
-            }
-            
-            nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_DONTWAIT); //Receive normal data
-            if(nBytesLocal == -1){
-                //perror("recv error\n");
-            }else if(nBytesLocal == 0){
-                printf("The local side closed the connection on you\n");
-                closeSession = 1;
-                eraseAllData(&storedPackets);
-                close(proxySockFD);
-                break;
-            }else{
-                if(DEBUG){
-                    printf("Just recieved %d bytes\n", nBytesLocal);
-                }
-                //sendToProxy = 1;
-                addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
-                rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
-            } 
-            
-        }
+        printf("Starting up the client...\n");
+        //Set up sockets
+        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
+        receivedSeqNum = 0;
+        closeSession = 0;
         
-    }
-    
-    if(!closeSession){
-        sendStoredData(proxySockFD, storedPackets);
-    }
-    eraseAllData(&storedPackets);
-    
-    }//End for(;;)
-    close(localSockFD);
-    close(listenSockFD);
+        //Keep relaying data between 2 sockets using select() or poll()
+        //Keep proxy up until connection is dead
+        for(;;){
+            pollFDs[LOCAL_POLL].fd = localSockFD;
+            pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
 
-    if(DEBUG){
-        printf("Last received seqNum is %d\n", receivedSeqNum);
-        printf("cproxy is finished\n");
-    }
+            pollFDs[PROXY_POLL].fd = proxySockFD;
+            pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+
+            sendToProxy = sendToLocal = isOOBProxy = isOOBLocal = notSentLocal = notSentProxy 
+            = numTimeouts = 0; //Initalize to false
+
+            //Mainloop
+            while(!closeSession){
+                //Only check for POLLOUT when necessary to use timeouts as hearbeats
+                if(sendToLocal){
+                    pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI | POLLOUT;
+                }else{
+                    pollFDs[LOCAL_POLL].events = POLLIN | POLLPRI;
+                }
+                if(sendToProxy){
+                    pollFDs[PROXY_POLL].events = POLLIN | POLLPRI | POLLOUT;
+                }else{
+                    pollFDs[PROXY_POLL].events = POLLIN | POLLPRI;
+                }
+
+                returnValue = poll(pollFDs, NUM_OF_SOCKS, TIMEOUT);
+                if(returnValue == -1){
+                    error("poll Error\n");
+                }else if(returnValue == 0){
+                    numTimeouts++;
+                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    if(numTimeouts >= 3){
+                        if(DEBUG){
+                            printf("Lost connection, time to close failed socket\n");
+                        }
+                        printf("Should have closed the proxy connection by now\n");
+                        break;
+                    }else{
+                        //Send out hearbeat message
+                        sendHeartBeat(proxySockFD, receivedSeqNum);
+                    }
+                }else{
+                    //Check local events
+                    if(notSentLocal){
+                        if(DEBUG){
+                            printf("Skipping recieve to wait to send past data for local\n");
+                        }
+                    }else{
+                        //RECEIVE
+                        if(pollFDs[LOCAL_POLL].revents & POLLPRI){
+                            if(DEBUG){
+                                printf("receiving out-of-band data from local!!\n");
+                            }
+                            nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_OOB); //Receive out-of-band data
+                            if(nBytesLocal == -1){
+                                perror("recv error\n");
+                            }else if(nBytesLocal == 0){
+                                printf("The local side closed the connection on you\n");
+                                closeSession = 1;
+                                break;
+                            }else{
+                                if(DEBUG){
+                                    printf("Just recieved %d bytes\n", nBytesLocal);
+                                }
+                                sendToProxy = 1;
+                                isOOBProxy = 1;
+                                addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
+                            } 
+                        }else if(pollFDs[LOCAL_POLL].revents & POLLIN){
+                            if(DEBUG){
+                                printf("receiving normal data from local\n");
+                            }
+                            nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), 0); //Receive normal data
+                            if(nBytesLocal == -1){
+                                perror("recv error\n");
+                            }else if(nBytesLocal == 0){
+                                printf("The local side closed the connection on you\n");
+                                closeSession = 1;
+                                break;
+                            }else{
+                                if(DEBUG){
+                                    printf("Just recieved %d bytes\n", nBytesLocal);
+                                }
+                                sendToProxy = 1;
+                                addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
+                            } 
+                        }
+                    }
+                    //SEND
+                    if(sendToLocal){
+                        if(pollFDs[LOCAL_POLL].revents & POLLOUT){
+                            // if(isOOBLocal){
+                            //     if(DEBUG){
+                            //         printf("Sending out out-of-band data to local\n");
+                            //     }
+                            //     if(sendall(localSockFD, bufProxy, &nBytesProxy, MSG_OOB) == -1){
+                            //         perror("Error with send\n");
+                            //         printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                            //     }
+                            //     isOOBLocal = 0;
+                            // }else{
+                                if(DEBUG){
+                                    printf("Sending out data to local\n");
+                                }
+                                //Normal
+                                if(sendall(localSockFD, bufProxy, &nBytesProxy, 0) == -1){
+                                    perror("Error with send\n");
+                                    printf("Only sent %d bytes because of error!\n", nBytesProxy);
+                                }
+                            //}
+                            sendToLocal = 0;
+                            notSentLocal = 0;
+                        }else{
+                            notSentLocal = 1;
+                        }
+                    }
+                    if(pollFDs[LOCAL_POLL].revents & POLLERR || pollFDs[LOCAL_POLL].revents & POLLHUP ||
+                    pollFDs[LOCAL_POLL].revents & POLLNVAL ){
+                        perror("Poll returned an error from local\n");
+                    }
+
+        //---------------------------------------------------------------------------------------------
+        //---------------------------------------------------------------------------------------------
+        //---------------------------------------------------------------------------------------------
+
+                    //Check proxy events - HEADER MANAGEMENT
+                    if(notSentProxy){
+                        if(DEBUG){
+                            printf("Skipping recieve to wait to send past data to proxy\n");
+                        }
+                    }else{
+                        //RECEIVE - NEED TO CHECK AND REMOVE HEADER
+                        if(pollFDs[PROXY_POLL].revents & POLLPRI){
+                            if(receiveProxyPacket(proxySockFD, &nBytesProxy, 1, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
+                             == -1){
+                                closeSession = 1;
+                                break;
+                            }  
+                        }else if(pollFDs[PROXY_POLL].revents & POLLIN){
+                            if(receiveProxyPacket(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receivedSeqNum)
+                             == -1){
+                                closeSession = 1;
+                                break;
+                            }
+                        }
+                    }
+                    //SEND - NEED TO ADD HEADER
+                    if(sendToProxy){
+                        if(pollFDs[PROXY_POLL].revents & POLLOUT){
+                            //if(isOOBProxy){
+                                // if(DEBUG){
+                                //     printf("Sending out out-of-band data to proxy\n");
+                                // }
+                                // addHeader(bufLocal, &nBytesLocal, DATA);
+                                // if(sendall(proxySockFD, bufLocal, &nBytesLocal, MSG_OOB) == -1){
+                                //     perror("Error with send\n");
+                                //     printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                                // }
+                                // isOOBProxy = 0;
+                            //}else{
+                                if(DEBUG){
+                                    printf("Sending out data to proxy\n");
+                                }
+                                //Normal
+                                //addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
+                                if(sendall(proxySockFD, bufLocal, &nBytesLocal, 0) == -1){
+                                    perror("Error with send\n");
+                                    printf("Only sent %d bytes because of error!\n", nBytesLocal);
+                                }
+                            //}
+                            sendToProxy = 0;
+                            notSentProxy = 0;
+                        }else{
+                            notSentProxy = 1;
+                        }
+                    }
+                    if(pollFDs[PROXY_POLL].revents & POLLERR || pollFDs[PROXY_POLL].revents & POLLHUP ||
+                    pollFDs[PROXY_POLL].revents & POLLNVAL ){
+                        perror("Poll returned an ERROR from proxy\n");
+
+                    }
+                }
+            }
+            //Close sockets
+            close(proxySockFD);
+            if(closeSession){
+                break;
+            }else{
+                setProxySocket(&proxySockFD);
+                while(tryToConnect(proxySockFD, argv[1]) != 0){
+                    if(DEBUG){
+                        printf("Checking if local socket is closed\n");
+                    }
+                    
+                    nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_DONTWAIT); //Receive normal data
+                    if(nBytesLocal == -1){
+                        //perror("recv error\n");
+                    }else if(nBytesLocal == 0){
+                        printf("The local side closed the connection on you\n");
+                        closeSession = 1;
+                        eraseAllData(&storedPackets);
+                        close(proxySockFD);
+                        break;
+                    }else{
+                        if(DEBUG){
+                            printf("Just recieved %d bytes\n", nBytesLocal);
+                        }
+                        //sendToProxy = 1;
+                        addHeader(bufLocal, &nBytesLocal, DATA, 0, receivedSeqNum);
+                        rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
+                    } 
+                    
+                }
+                
+            }
+            
+            if(!closeSession){
+                sendStoredData(proxySockFD, storedPackets);
+            }
+            eraseAllData(&storedPackets);
+            
+        }//End for(;;)
+        close(localSockFD);
+        close(listenSockFD);
     }//End while(1)
+    printf("cproxy is finished\n");
     return 0;
 }
 
@@ -454,7 +433,6 @@ int sendall(int s, char *buf, int *len, int flags)
     }
 
     *len = total; // return number actually sent here
-
     if(DEBUG){
         printf("Sent out a total of %d bytes\n", total);
     }
@@ -558,25 +536,6 @@ void processReceivedHeader(int sockFD, char *buffer, int *numTimeouts, int *send
             }
         }
     }
-
-    // if(type == HEARTBEAT){
-    //     // if(DEBUG){
-    //     //     printf("Recieved a heartbeat, time to send ACK\n");
-    //     // }
-    //     //sendAck(sockFD, *seqNum);
-    // }else if(type == INIT){
-    //     if(DEBUG){
-    //         printf("Recieved a new connection initiation, which shouldn't happen on client\n");
-    //     }
-    // }else if(type == ACK){
-    //     // if(DEBUG){
-    //     //     printf("received ACK\n");
-    //     // }
-    //     // *numTimeouts = 0;
-    // }else if(type != HEARTBEAT && type != INIT && type != DATA && type != ACK){
-    //     perror("Received unknown type of header!\n");
-    //     *seqNum = pastSeqNum;
-    // }
 }
 
 int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
@@ -598,11 +557,11 @@ int removeHeader(char *buffer, int *nBytes, int *rType, uint32_t *seqNum){
         }
         
     }
-    if(ntohl(cHdr->seqNum) != ((*seqNum) + 1) && type == DATA){
-        if(DEBUG){
-            printf("Missing a packet!\n");
-        }
-    }
+    // if(ntohl(cHdr->seqNum) != ((*seqNum) + 1) && type == DATA){
+    //     if(DEBUG){
+    //         printf("Missing a packet!\n");
+    //     }
+    // }
     
     if(DEBUG){
         printf("Received packet of type %d with seqNum %d and payload size %d\n", type, *seqNum, pLength);
@@ -704,8 +663,6 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
     proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
-
-
     
     printf("Now trying to attempting to connect to server\n");
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
@@ -729,12 +686,6 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
         
     }
 
-    // int oldfl;
-    // oldfl = fcntl(proxySockFD, F_GETFL);
-    // if (oldfl == -1) {
-    //     perror("Error trying to block proxySockFD\n");
-    // }
-    // fcntl(proxySockFD, F_SETFL, oldfl & ~O_NONBLOCK);
     if(DEBUG){
         printf("Now connected to server side\n");
     }
@@ -749,7 +700,6 @@ void setProxySocket(int *proxySock){
     int option  = 1;
 
     //Make a TCP connection to server port 6200(connect to sproxy)
-    
     proxySockFD = socket(PF_INET, SOCK_STREAM, 0);
     if(proxySockFD < 0){
         error("Error opening socket\n");
@@ -766,7 +716,6 @@ void setProxySocket(int *proxySock){
     }
     
     fcntl(proxySockFD, F_SETFL, O_NONBLOCK);
-
 
     //Assign all file descriptors
     *proxySock = proxySockFD;
@@ -785,8 +734,6 @@ int tryToConnect(int proxySockFD, char *serverEth1IPAddress){
     proxyAddr.sin_addr.s_addr = inet_addr(serverEth1IPAddress);
     proxyAddr.sin_port = htons(OUTGOING_PORT); //CHANGE WHEN DEBUGGING TO TELNET_PORT/OUTGOING_PORT
     memset(proxyAddr.sin_zero, '\0', sizeof(proxyAddr.sin_zero));
-    
-   
   
     rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
     if( rv == -1 ){
@@ -801,7 +748,6 @@ int tryToConnect(int proxySockFD, char *serverEth1IPAddress){
     }
     poll(&pollFD, 1, WAITTIME);
 
-
     if(rv == -1){
         return -1;
     }else{
@@ -811,10 +757,6 @@ int tryToConnect(int proxySockFD, char *serverEth1IPAddress){
         return 0;
     }
 }
-
-
-
-
 
 
 
@@ -837,7 +779,6 @@ void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, in
     }else{
         addData(*startPacket, buffer, id, nBytes);
     }
-    
 }
 
 //Adds data to end of list recursively
