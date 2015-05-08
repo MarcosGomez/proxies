@@ -337,8 +337,9 @@ int main( int argc, char *argv[] ){
                             printf("Just recieved %d bytes\n", nBytesLocal);
                         }
                         //sendToProxy = 1;
+                        rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
                     } 
-            rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
+            
         }
         
     }
