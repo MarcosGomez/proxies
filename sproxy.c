@@ -317,12 +317,14 @@ int main( void ){
                 if(!isProxyConnection){
                     break;
                 }
-
             }//end while
+
+
+
             if(isProxyConnection){
                 //Do this once for each connection loss
                 if(DEBUG){
-                    printf("SHOULD ONLY HAPPEN ONCE PER CONNECTION. closing proxySockFD\n");
+                    printf("SHOULD ONLY HAPPEN ONCE PER CONNECTION.\nclosing proxySockFD\n");
                 }
                 close(proxySockFD);
 
@@ -356,6 +358,7 @@ int main( void ){
                         if(DEBUG){
                             printf("Sending out data to local because not an Init\n");
                         }
+                        //Send out data it received from checking if init
                         if(sendToLocal){
                             //Normal
                             if(sendall(localSockFD, bufProxy, &nBytesProxy, 0) == -1){
@@ -372,6 +375,7 @@ int main( void ){
                     }
                 }
             }
+            //eraseAllData(&storedPackets);
             
         }//End for(;;)
         close(localSockFD);
