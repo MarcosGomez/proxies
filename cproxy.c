@@ -336,7 +336,7 @@ int main( int argc, char *argv[] ){
             if(!closeSession){
                 sendStoredData(proxySockFD, storedPackets);
                 //Just in case no stored data
-                sendAck(proxySockFD);
+                sendAck(proxySockFD, receivedSeqNum);
             }
             eraseAllData(&storedPackets);
             
