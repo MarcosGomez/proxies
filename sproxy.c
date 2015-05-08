@@ -78,6 +78,7 @@ int retryProxyConnection(int *listenSock, int *proxySock);
 void listenForReconnect(int *listenSock);
 int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum);
 int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
+void eraseAllData(struct packetData **startPacket);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -336,13 +337,17 @@ int main( void ){
         }
         if( retryProxyConnection(&listenSockFD, &proxySockFD) == 0 ){
             isProxyConnection = 1;
-            close(listenSockFD);
+            close(listenSockFD);//EDIT retryProxyConnection so same listenSock
             if(checkIfInit(proxySockFD, &nBytesProxy, 0, bufProxy, &numTimeouts, &sendToLocal, &isOOBLocal, &receiveTime, &receivedAckNum) == 0){
                 if(DEBUG){
                     printf("Restarting telnet connection with server\n");
                 }
                 //Need to reset everything (eg linked list) and reconnect to local side
-                error("Pausing now. Not implemented yet\n");
+                eraseAllData(&storedPackets);
+                close(localSockFD);
+                close(proxySockFD);
+                //retryAgain = 1;
+                //error("Pausing now. Not implemented yet\n");
 
             }else{
                 if(DEBUG){
@@ -358,14 +363,12 @@ int main( void ){
                 retransmitUnAckedData(proxySockFD, storedPackets);
             }
             
-            
         }else{
             isProxyConnection = 0;
             if(DEBUG){
                 printf("Cannot connect to proxy, restarting server connection\n");
             }
         }
-        
         
     }
     
@@ -1100,4 +1103,15 @@ int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo
         return -3;
     }
     
+}
+
+void eraseAllData(struct packetData **startPacket){
+    if(DEBUG){
+        printf("Erasing all data");
+    }
+    if(*startPacket == NULL){
+        perror("Trying to erase stored packets from an empty list!\n");
+    }else{
+        *startPacket = deleteAllData(*startPacket);
+    }
 }
