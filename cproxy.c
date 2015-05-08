@@ -112,7 +112,7 @@ int main( int argc, char *argv[] ){
     while(1){
         printf("Starting up the client...\n");
         //Set up sockets
-        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);
+        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);//CHange something here
         receivedSeqNum = 0;
         closeSession = 0;
         
@@ -335,10 +335,13 @@ int main( int argc, char *argv[] ){
             
             if(!closeSession){
                 sendStoredData(proxySockFD, storedPackets);
+                //Just in case no stored data
+                sendAck(proxySockFD);
             }
             eraseAllData(&storedPackets);
             
         }//End for(;;)
+        //When local closed connection
         close(localSockFD);
         close(listenSockFD);
     }//End while(1)
@@ -639,6 +642,7 @@ void addHeader(void *buffer, int *nBytes, uint8_t type, uint32_t seqNum, uint32_
     }
 }
 
+//Need to assume proxySock is non-blocking
 void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     int proxySockFD;
     struct sockaddr_in proxyAddr;
