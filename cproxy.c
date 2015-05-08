@@ -96,8 +96,9 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress);
 int reconnectOnceToProxy(int *proxySock, char *serverEth1IPAddress);
 void rememberData(struct packetData **startPacket, void *buffer, uint32_t id, int nBytes);
 void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes);
-void eraseData(struct packetData **startPacket, uint32_t id);
-struct packetData *deleteData(struct packetData *pData, uint32_t id);
+void eraseAllData(struct packetData **startPacket);
+struct packetData *deleteAllData(struct packetData *pData);
+void sendStoredData(int sockFD, struct packetData *pData);
 
 
 //Using telnet localhost 5200 to connect here
@@ -116,7 +117,7 @@ int main( int argc, char *argv[] ){
     int numTimeouts;
     uint32_t receivedSeqNum;
 
-    //struct packetData *storedPackets;
+    struct packetData *storedPackets = NULL;
     
     //Make sure IP of server is provided
     if(argc < 2){
@@ -325,7 +326,7 @@ int main( int argc, char *argv[] ){
             
                     nBytesLocal = recv(localSockFD, bufLocal, sizeof(bufLocal) - sizeof(struct customHdr), MSG_DONTWAIT); //Receive normal data
                     if(nBytesLocal == -1){
-                        perror("recv error\n");
+                        //perror("recv error\n");
                     }else if(nBytesLocal == 0){
                         printf("The local side closed the connection on you\n");
                         closeSession = 1;
@@ -334,24 +335,18 @@ int main( int argc, char *argv[] ){
                         if(DEBUG){
                             printf("Just recieved %d bytes\n", nBytesLocal);
                         }
-                        sendToProxy = 1;
+                        //sendToProxy = 1;
                     } 
-            //Check if local connection closes
-            //Store the data
-            // rVal = recv(localSockFD, nothingBuf, sizeof(nothingBuf), MSG_PEEK | MSG_DONTWAIT);
-            // if (rVal == 0){
-            //     closeSession = 1;
-            //     break;
-            // }else{
-            //     if(DEBUG){
-            //         printf("Still connected, but rVal = %d\n", rVal);
-            //     }
-            // }
+            rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
         }
         
         
     }
     
+    if(!closeSession){
+        sendStoredData(proxySockFD, storedPackets);
+        eraseAllData(&storedPackets);
+    }
     
     }//End for(;;)
     close(localSockFD);
@@ -851,39 +846,47 @@ void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes){
     }
 }
 
-void eraseData(struct packetData **startPacket, uint32_t id){
+void eraseAllData(struct packetData **startPacket){
     if(DEBUG){
-        printf("Erasing all data up to id: %d\n", id);
+        printf("Erasing all data");
     }
     if(*startPacket == NULL){
         perror("Trying to erase stored packets from an empty list!\n");
     }else{
-        *startPacket = deleteData(*startPacket, id);
+        *startPacket = deleteAllData(*startPacket);
     }
 }
 
-struct packetData *deleteData(struct packetData *pData, uint32_t id){
+struct packetData *deleteAllData(struct packetData *pData){
     struct packetData *tempData;
     tempData = pData->next;
-    if(pData->id > id){
+    if(tempData == NULL){
         if(DEBUG){
-            printf("Received an id to remove that is smaller than first!\n");
+            printf("Deleted all packets\n");
         }
-        return pData;
-    }else if(pData->id == id){
-        if(DEBUG){
-            printf("Deleted last packet\n");
-        }
-        free(pData);
-        return tempData;
-    }else if(tempData == NULL){
-        perror("Packet to delete doesn't exit in the list!!\n");
         return NULL;
     }else{
         if(DEBUG){
             printf("Deleted a packet\n");
         }
         free(pData);
-        return deleteData(tempData, id);
+        return deleteAllData(tempData);
     }
+}
+
+void sendStoredData(int sockFD, struct packetData *pData){
+    if(pData != NULL){
+        
+        int nBytes = pData->size;
+        if(sendall(sockFD, pData->data, &nBytes, 0) == -1){
+            perror("Error with send\n");
+            printf("Only sent %d bytes because of error!\n", nBytes);
+        }
+        if(DEBUG){
+            printf("transmitted a packet of size %d and id of %d\n", nBytes, pData->id);
+        }
+
+        sendStoredData(sockFD, pData->next);
+    }
+    //else return
 }
