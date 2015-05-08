@@ -116,6 +116,7 @@ int main( void ){
             close(listenSockFD);
         }
         
+        startWithProxy = 0;
         isProxyConnection = 1;
         storedPackets = NULL;
         sequenceNum = 1;
@@ -161,7 +162,6 @@ int main( void ){
                         if(DEBUG){
                             printf("Lost connection, time to close failed socket\n");
                         }
-                        printf("Should have closed the proxy connection by now\n");
                         break;
                     }else{
                         //Send out hearbeat message

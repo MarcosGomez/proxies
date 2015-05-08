@@ -152,7 +152,6 @@ int main( int argc, char *argv[] ){
                         if(DEBUG){
                             printf("Lost connection, time to close failed socket\n");
                         }
-                        printf("Should have closed the proxy connection by now\n");
                         break;
                     }else{
                         //Send out hearbeat message
@@ -300,6 +299,7 @@ int main( int argc, char *argv[] ){
                     }
                 }
             }
+            
             //Close sockets
             close(proxySockFD);
             if(closeSession){
