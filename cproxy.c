@@ -330,6 +330,7 @@ int main( int argc, char *argv[] ){
                     }else if(nBytesLocal == 0){
                         printf("The local side closed the connection on you\n");
                         closeSession = 1;
+                        eraseAllData(&storedPackets);
                         break;
                     }else{
                         if(DEBUG){
@@ -340,13 +341,12 @@ int main( int argc, char *argv[] ){
             rememberData(&storedPackets, bufLocal, 0, nBytesLocal);
         }
         
-        
     }
     
     if(!closeSession){
         sendStoredData(proxySockFD, storedPackets);
-        eraseAllData(&storedPackets);
     }
+    eraseAllData(&storedPackets);
     
     }//End for(;;)
     close(localSockFD);
