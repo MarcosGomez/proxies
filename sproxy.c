@@ -79,6 +79,7 @@ void listenForReconnect(int *listenSock);
 int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, struct timeval *receiveTime, uint32_t *ackNum);
 int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
 void eraseAllData(struct packetData **startPacket);
+struct packetData *deleteAllData(struct packetData *pData);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -1113,5 +1114,22 @@ void eraseAllData(struct packetData **startPacket){
         perror("Trying to erase stored packets from an empty list!\n");
     }else{
         *startPacket = deleteAllData(*startPacket);
+    }
+}
+
+struct packetData *deleteAllData(struct packetData *pData){
+    struct packetData *tempData;
+    tempData = pData->next;
+    if(tempData == NULL){
+        if(DEBUG){
+            printf("Deleted all packets\n");
+        }
+        return NULL;
+    }else{
+        if(DEBUG){
+            printf("Deleted a packet\n");
+        }
+        free(pData);
+        return deleteAllData(tempData);
     }
 }
