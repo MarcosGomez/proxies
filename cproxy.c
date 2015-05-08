@@ -860,7 +860,7 @@ void addData(struct packetData *pData, void *buffer, uint32_t id, int nBytes){
 
 void eraseAllData(struct packetData **startPacket){
     if(DEBUG){
-        printf("Erasing all data");
+        printf("Erasing all data\n");
     }
     if(*startPacket == NULL){
         perror("Trying to erase stored packets from an empty list!\n");

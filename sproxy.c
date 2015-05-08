@@ -80,6 +80,7 @@ int checkIfInit(int sockFD, int *nBytes, int flag, char *buffer, int *numTimeout
 int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo, int *isOOB, int *nBytes, int flag, uint32_t *ackNum);
 void eraseAllData(struct packetData **startPacket);
 struct packetData *deleteAllData(struct packetData *pData);
+void setUpLocal(int *localSock);
 
 int main( void ){
     int localSockFD, proxySockFD, listenSockFD;
@@ -102,12 +103,19 @@ int main( void ){
     uint32_t receivedAckNum;
 
     int isProxyConnection; //bool
+    int startWithProxy; //bool
 
+    startWithProxy = 0;
     while(1){
     printf("Starting up the server...\n");
 
-    setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
-    close(listenSockFD);
+    if(startWithProxy){
+        setUpLocal(&localSockFD);
+    }else{
+        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
+        close(listenSockFD);
+    }
+    
     isProxyConnection = 1;
     storedPackets = NULL;
     sequenceNum = 1;
@@ -346,12 +354,12 @@ int main( void ){
                 }
                 //Need to reset everything (eg linked list) and reconnect to local side
                 eraseAllData(&storedPackets);
-                close(proxySockFD);
+                //Reset without editing proxySock
                 closeSession = 1;
+                startWithProxy = 1;
                 break;
                 //startedWithInit = 1;
                 //error("Pausing now. Not implemented yet\n");
-
             }else{
                 if(DEBUG){
                     printf("Sending out data to local because not an Init\n");
@@ -365,14 +373,12 @@ int main( void ){
                 }
                 retransmitUnAckedData(proxySockFD, storedPackets);
             }
-            
         }else{
             isProxyConnection = 0;
             if(DEBUG){
                 printf("Cannot connect to proxy, restarting server connection\n");
             }
         }
-        
     }
     
     }//End for(;;)
@@ -383,6 +389,8 @@ int main( void ){
     }//while(1)
     return 0;
 }
+
+
 
 
 
@@ -1105,7 +1113,7 @@ int processHeaderForInit(int sockFD, char *buffer, int *numTimeouts, int *sendTo
 
 void eraseAllData(struct packetData **startPacket){
     if(DEBUG){
-        printf("Erasing all data");
+        printf("Erasing all data\n");
     }
     if(*startPacket == NULL){
         perror("Trying to erase stored packets from an empty list!\n");
@@ -1129,4 +1137,35 @@ struct packetData *deleteAllData(struct packetData *pData){
         free(pData);
         return deleteAllData(tempData);
     }
+}
+
+void setUpLocal(int *localSock){
+    int localSockFD;
+    struct sockaddr_in localAddr;
+    
+    
+    //Make a TCP connection to localhost(127.0.0.1)port 23 (Where telnet daemon is listening on)
+    if(DEBUG){
+        printf("Now trying to connect to telnet on server\n");
+    }
+    localSockFD = socket(PF_INET, SOCK_STREAM, 0);
+    if(localSockFD < 0){
+        error("Error opening socket\n");
+    }
+
+    localAddr.sin_family = AF_INET;
+    localAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    localAddr.sin_port = htons(OUTGOING_PORT);
+    memset(localAddr.sin_zero, '\0', sizeof(localAddr.sin_zero));
+
+    if(connect(localSockFD, (struct sockaddr *) &localAddr, sizeof(localAddr)) < 0){
+        error("Error connecting\n");
+    }
+    if(DEBUG){
+        printf("Now connected to server side\n");
+    }
+
+    //Assign all file descriptors
+    *localSock = localSockFD;
+    
 }
