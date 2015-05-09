@@ -100,6 +100,9 @@ int main( void ){
         perror("mutex init failed\n");
         return 1;
     }
+    if(DEBUG){
+        printf("Starting to create server threads\n");
+    }
  
     // Keep creating threads
     for (i = 0; 1; i++){
