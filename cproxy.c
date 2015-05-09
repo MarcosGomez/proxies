@@ -35,7 +35,7 @@
 #include <fcntl.h>
 
 
-#define DEBUG 1
+#define DEBUG 0
 #define INCOMING_PORT 5200
 #define OUTGOING_PORT 6200
 #define TELNET_PORT 23
@@ -357,7 +357,7 @@ int main( int argc, char *argv[] ){
 
 
 void usage(char *argv[]){
-    fprintf(stdout, "Usage: %s w.x.y.z   ~eth1 IP address of the Server(was 192.168.8.2)\n", argv[0]);
+    fprintf(stdout, "Usage: %s w.x.y.z   ~eth1 IP address of the Server\n", argv[0]);
     exit(1);
 }
 
