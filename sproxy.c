@@ -108,7 +108,7 @@ int main( void ){
     for (i = 0; 1; i++){
         err = pthread_create(&tid, NULL, newServerThread, (void *)i);
         if (err != 0)
-            printf("\ncan't create thread :[%s]", strerror(err));
+            printf("\ncan't create thread :[%s]\n", strerror(err));
 
         while(1){
             pthread_mutex_lock(&lock);

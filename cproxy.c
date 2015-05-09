@@ -33,6 +33,7 @@
 #include <netdb.h>
 #include <unistd.h> //close
 #include <fcntl.h>
+#include <pthread.h>
 
 
 #define DEBUG 1
@@ -66,6 +67,7 @@ struct packetData{
     char data[MAX_BUFFER_SIZE];
 };
 
+void *newClientThread(void *vargp);
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
@@ -86,9 +88,65 @@ void eraseAllData(struct packetData **startPacket);
 struct packetData *deleteAllData(struct packetData *pData);
 void sendStoredData(int sockFD, struct packetData *pData);
 
+int numberOfClientsConnected;
+pthread_mutex_t lock;
+
+int main( int argc, char *argv[] ){
+    int i;
+    pthread_t tid;
+    int err;
+    int pastNum;
+
+    //Make sure IP of server is provided
+    if(argc < 2){
+        usage(argv);
+    }
+    pastNum = numberOfClientsConnected = 0;
+
+
+    //Initialize mutex
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        perror("mutex init failed\n");
+        return 1;
+    }
+    if(DEBUG){
+        printf("Starting to create server threads\n");
+    }
+ 
+    // Keep creating threads
+    for (i = 0; 1; i++){
+        err = pthread_create(&tid, NULL, newClientThread, argv[1]);
+        if (err != 0)
+            printf("\ncan't create thread :[%s]\n", strerror(err));
+
+        while(1){
+            pthread_mutex_lock(&lock);
+            if(pastNum != numberOfClientsConnected){
+                pthread_mutex_unlock(&lock);
+                break;
+            }
+            pthread_mutex_unlock(&lock);
+            //Keep looping
+        }
+        pthread_mutex_lock(&lock);
+        pastNum = numberOfClientsConnected;
+        pthread_mutex_unlock(&lock);
+        if(DEBUG){
+            printf("Number of clients is now %d\n", pastNum);
+        }
+    }
+    pthread_join(tid, NULL);
+    
+    pthread_exit(NULL);
+
+    pthread_mutex_destroy(&lock);
+    return 0;
+}
+
 
 //Using telnet localhost 5200 to connect here
-int main( int argc, char *argv[] ){
+void *newClientThread(void *vargp){
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
     int nBytesLocal, nBytesProxy;
@@ -104,15 +162,17 @@ int main( int argc, char *argv[] ){
     uint32_t receivedSeqNum;
 
     struct packetData *storedPackets = NULL;
+    char *serverAddr = vargp;
     
-    //Make sure IP of server is provided
-    if(argc < 2){
-        usage(argv);
-    }
+    
     while(1){
         printf("Starting up the client...\n");
         //Set up sockets
-        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);//CHange something here
+        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, serverAddr);
+
+        pthread_mutex_lock(&lock);
+        numberOfClientsConnected++;
+        pthread_mutex_unlock(&lock);
         receivedSeqNum = 0;
         closeSession = 0;
         
@@ -299,14 +359,14 @@ int main( int argc, char *argv[] ){
                     }
                 }
             }
-            
+
             //Close sockets
             close(proxySockFD);
             if(closeSession){
                 break;
             }else{
                 setProxySocket(&proxySockFD);
-                while(tryToConnect(proxySockFD, argv[1]) != 0){
+                while(tryToConnect(proxySockFD, serverAddr) != 0){
                     if(DEBUG){
                         printf("Checking if local socket is closed\n");
                     }
