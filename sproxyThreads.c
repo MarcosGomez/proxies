@@ -15,10 +15,11 @@
 #include <sys/types.h>
 #include <sys/poll.h>
 #include <netdb.h>
-#include <unistd.h> //close
+#include <unistd.h>
 #include <sys/time.h>
+#include <pthread.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #define INCOMING_PORT 6200
 #define OUTGOING_PORT 23
 #define BACKLOG 10  //how many pending connections queue will hold
@@ -56,7 +57,7 @@ struct packetData{
 //     int tz_minuteswest;     ///* minutes west of Greenwich */
 //     int tz_dsttime;         ///* type of DST correction */
 // };
-
+void *newServerThread(void *vargp);
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock);
@@ -82,7 +83,60 @@ void eraseAllData(struct packetData **startPacket);
 struct packetData *deleteAllData(struct packetData *pData);
 void setUpLocal(int *localSock);
 
+int numberOfServersConnected;
+pthread_mutex_t lock;
+
 int main( void ){
+    int i;
+    pthread_t tid;
+    int err;
+    int pastNum;
+
+    pastNum = numberOfServersConnected = 0;
+
+    //Initialize mutex
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        perror("mutex init failed\n");
+        return 1;
+    }
+    if(DEBUG){
+        printf("Starting to create server threads\n");
+    }
+ 
+    // Keep creating threads
+    for (i = 0; 1; i++){
+        err = pthread_create(&tid, NULL, newServerThread, NULL);
+        if (err != 0)
+            printf("\ncan't create thread :[%s]\n", strerror(err));
+
+        while(1){
+            pthread_mutex_lock(&lock);
+            if(pastNum != numberOfServersConnected){
+                pthread_mutex_unlock(&lock);
+                break;
+            }
+            pthread_mutex_unlock(&lock);
+            //Keep looping
+        }
+        pthread_mutex_lock(&lock);
+        pastNum = numberOfServersConnected;
+        pthread_mutex_unlock(&lock);
+        if(DEBUG){
+            printf("Number of servers is now %d\n", pastNum);
+        }
+    }
+    pthread_join(tid, NULL);
+    
+    pthread_exit(NULL);
+
+    pthread_mutex_destroy(&lock);
+    return 0;
+}
+
+
+
+void *newServerThread(void *vargp){
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
     int nBytesLocal, nBytesProxy;
@@ -106,6 +160,7 @@ int main( void ){
     int startWithProxy; //bool
 
     startWithProxy = 0;
+    printf("NEW SERVER THREAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
     while(1){
         printf("Starting up the server...\n");
 
@@ -115,6 +170,9 @@ int main( void ){
             setUpConnections(&localSockFD, &proxySockFD, &listenSockFD);
             close(listenSockFD);
         }
+        pthread_mutex_lock(&lock);
+        numberOfServersConnected++;
+        pthread_mutex_unlock(&lock);
         
         startWithProxy = 0;
         isProxyConnection = 1;
@@ -156,7 +214,8 @@ int main( void ){
                     error("poll Error\n");
                 }else if(returnValue == 0){
                     numTimeouts++;
-                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    if(DEBUG)
+                        printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
                     
                     if(numTimeouts >= 3){
                         if(DEBUG){
@@ -300,7 +359,8 @@ int main( void ){
                     gettimeofday(&timeNow, NULL);
                     if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
                         numTimeouts = (int) timeNow.tv_sec - receiveTime.tv_sec;
-                        printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
+                        if(DEBUG)
+                            printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
 
                         if(numTimeouts >= 3 && numTimeouts < 9999){
                             if(DEBUG){
@@ -382,7 +442,7 @@ int main( void ){
         close(listenSockFD);
     }//while(1)
     printf("sproxy is finished\n");
-    return 0;
+    return NULL;
 }
 
 
@@ -776,7 +836,8 @@ void eraseData(struct packetData **startPacket, uint32_t id){
         printf("Erasing all data up to id: %d\n", id);
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG)   
+            perror("Trying to erase stored packets from an empty list!\n");
     }else{
         *startPacket = deleteData(*startPacket, id);
     }
@@ -1052,7 +1113,8 @@ void eraseAllData(struct packetData **startPacket){
         printf("Erasing all data\n");
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG)
+            perror("Trying to erase stored packets from an empty list!\n");
     }else{
         *startPacket = deleteAllData(*startPacket);
     }

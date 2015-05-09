@@ -33,10 +33,9 @@
 #include <netdb.h>
 #include <unistd.h> //close
 #include <fcntl.h>
-#include <pthread.h>
 
 
-#define DEBUG 0
+#define DEBUG 1
 #define INCOMING_PORT 5200
 #define OUTGOING_PORT 6200
 #define TELNET_PORT 23
@@ -67,7 +66,6 @@ struct packetData{
     char data[MAX_BUFFER_SIZE];
 };
 
-void *newClientThread(void *vargp);
 void usage(char *argv[]);
 void error(char *msg);
 void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *serverEth1IPAddress);
@@ -88,65 +86,9 @@ void eraseAllData(struct packetData **startPacket);
 struct packetData *deleteAllData(struct packetData *pData);
 void sendStoredData(int sockFD, struct packetData *pData);
 
-int numberOfClientsConnected;
-pthread_mutex_t lock;
-
-int main( int argc, char *argv[] ){
-    int i;
-    pthread_t tid;
-    int err;
-    int pastNum;
-
-    //Make sure IP of server is provided
-    if(argc < 2){
-        usage(argv);
-    }
-    pastNum = numberOfClientsConnected = 0;
-
-
-    //Initialize mutex
-    if (pthread_mutex_init(&lock, NULL) != 0)
-    {
-        perror("mutex init failed\n");
-        return 1;
-    }
-    if(DEBUG){
-        printf("Starting to create client threads\n");
-    }
- 
-    // Keep creating threads
-    for (i = 0; 1; i++){
-        err = pthread_create(&tid, NULL, newClientThread, argv[1]);
-        if (err != 0)
-            printf("\ncan't create thread :[%s]\n", strerror(err));
-
-        while(1){
-            pthread_mutex_lock(&lock);
-            if(pastNum != numberOfClientsConnected){
-                pthread_mutex_unlock(&lock);
-                break;
-            }
-            pthread_mutex_unlock(&lock);
-            //Keep looping
-        }
-        pthread_mutex_lock(&lock);
-        pastNum = numberOfClientsConnected;
-        pthread_mutex_unlock(&lock);
-        if(DEBUG){
-            printf("NUMBER Of CLIENTS IS NOW %d\n", pastNum);
-        }
-    }
-    pthread_join(tid, NULL);
-    
-    pthread_exit(NULL);
-
-    pthread_mutex_destroy(&lock);
-    return 0;
-}
-
 
 //Using telnet localhost 5200 to connect here
-void *newClientThread(void *vargp){
+int main( int argc, char *argv[] ){
     int localSockFD, proxySockFD, listenSockFD;
     int returnValue;
     int nBytesLocal, nBytesProxy;
@@ -162,18 +104,15 @@ void *newClientThread(void *vargp){
     uint32_t receivedSeqNum;
 
     struct packetData *storedPackets = NULL;
-    char *serverAddr = vargp;
     
-    printf("NEW CLIENT THREAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
-    
+    //Make sure IP of server is provided
+    if(argc < 2){
+        usage(argv);
+    }
     while(1){
         printf("Starting up the client...\n");
         //Set up sockets
-        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, serverAddr);
-
-        pthread_mutex_lock(&lock);
-        numberOfClientsConnected++;
-        pthread_mutex_unlock(&lock);
+        setUpConnections(&localSockFD, &proxySockFD, &listenSockFD, argv[1]);//CHange something here
         receivedSeqNum = 0;
         closeSession = 0;
         
@@ -208,8 +147,7 @@ void *newClientThread(void *vargp){
                     error("poll Error\n");
                 }else if(returnValue == 0){
                     numTimeouts++;
-                    if(DEBUG)
-                        printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
                     if(numTimeouts >= 3){
                         if(DEBUG){
                             printf("Lost connection, time to close failed socket\n");
@@ -361,14 +299,14 @@ void *newClientThread(void *vargp){
                     }
                 }
             }
-
+            
             //Close sockets
             close(proxySockFD);
             if(closeSession){
                 break;
             }else{
                 setProxySocket(&proxySockFD);
-                while(tryToConnect(proxySockFD, serverAddr) != 0){
+                while(tryToConnect(proxySockFD, argv[1]) != 0){
                     if(DEBUG){
                         printf("Checking if local socket is closed\n");
                     }
@@ -870,7 +808,9 @@ void eraseAllData(struct packetData **startPacket){
         printf("Erasing all data\n");
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG){
+            perror("Trying to erase stored packets from an empty list!\n");
+        }
     }else{
         *startPacket = deleteAllData(*startPacket);
     }
