@@ -778,7 +778,9 @@ void eraseData(struct packetData **startPacket, uint32_t id){
         printf("Erasing all data up to id: %d\n", id);
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG){
+            perror("Trying to erase stored packets from an empty list!\n");
+        }
     }else{
         *startPacket = deleteData(*startPacket, id);
     }

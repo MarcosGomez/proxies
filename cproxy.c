@@ -147,7 +147,9 @@ int main( int argc, char *argv[] ){
                     error("poll Error\n");
                 }else if(returnValue == 0){
                     numTimeouts++;
-                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    if(DEBUG){
+                        printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    }
                     if(numTimeouts >= 3){
                         if(DEBUG){
                             printf("Lost connection, time to close failed socket\n");
@@ -394,9 +396,7 @@ void setUpConnections(int *localSock, int *proxySock, int *listenSock, char *ser
     }
 
     //Listen to TCP port 5200 for incoming connection
-    if(DEBUG){
-        printf("Listening for connections...(Use \"telnet localhost 5200\")\n");
-    }
+    printf("Listening for connections...(Use \"telnet localhost 5200\")\n");
     if(listen(listenSockFD, BACKLOG) < 0){
         error("Error when listening\n");
     }
