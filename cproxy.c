@@ -36,7 +36,7 @@
 #include <pthread.h>
 
 
-#define DEBUG 1
+#define DEBUG 0
 #define INCOMING_PORT 5200
 #define OUTGOING_PORT 6200
 #define TELNET_PORT 23

@@ -19,7 +19,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #define INCOMING_PORT 6200
 #define OUTGOING_PORT 23
 #define BACKLOG 10  //how many pending connections queue will hold
@@ -106,7 +106,7 @@ int main( void ){
  
     // Keep creating threads
     for (i = 0; 1; i++){
-        err = pthread_create(&tid, NULL, newServerThread, (void *)i);
+        err = pthread_create(&tid, NULL, newServerThread, NULL);
         if (err != 0)
             printf("\ncan't create thread :[%s]\n", strerror(err));
 
@@ -159,13 +159,10 @@ void *newServerThread(void *vargp){
     int isProxyConnection; //bool
     int startWithProxy; //bool
 
-    // Store the value argument passed to this thread
-    int myid = (int)vargp;
-
     startWithProxy = 0;
     printf("NEW SERVER THREAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
     while(1){
-        printf("Starting up server number %d...\n", myid);
+        printf("Starting up the server...\n");
 
         if(startWithProxy){
             setUpLocal(&localSockFD);
