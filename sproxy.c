@@ -214,7 +214,8 @@ void *newServerThread(void *vargp){
                     error("poll Error\n");
                 }else if(returnValue == 0){
                     numTimeouts++;
-                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    if(DEBUG)
+                        printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
                     
                     if(numTimeouts >= 3){
                         if(DEBUG){
@@ -358,7 +359,8 @@ void *newServerThread(void *vargp){
                     gettimeofday(&timeNow, NULL);
                     if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
                         numTimeouts = (int) timeNow.tv_sec - receiveTime.tv_sec;
-                        printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
+                        if(DEBUG)
+                            printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
 
                         if(numTimeouts >= 3 && numTimeouts < 9999){
                             if(DEBUG){
@@ -834,7 +836,8 @@ void eraseData(struct packetData **startPacket, uint32_t id){
         printf("Erasing all data up to id: %d\n", id);
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG)   
+            perror("Trying to erase stored packets from an empty list!\n");
     }else{
         *startPacket = deleteData(*startPacket, id);
     }
@@ -1110,7 +1113,8 @@ void eraseAllData(struct packetData **startPacket){
         printf("Erasing all data\n");
     }
     if(*startPacket == NULL){
-        perror("Trying to erase stored packets from an empty list!\n");
+        if(DEBUG)
+            perror("Trying to erase stored packets from an empty list!\n");
     }else{
         *startPacket = deleteAllData(*startPacket);
     }

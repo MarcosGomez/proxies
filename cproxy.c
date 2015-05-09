@@ -208,7 +208,8 @@ void *newClientThread(void *vargp){
                     error("poll Error\n");
                 }else if(returnValue == 0){
                     numTimeouts++;
-                    printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
+                    if(DEBUG)
+                        printf("Timeout number occured! No data after %.3f seconds\n", TIMEOUT * numTimeouts/1000.0f);
                     if(numTimeouts >= 3){
                         if(DEBUG){
                             printf("Lost connection, time to close failed socket\n");
