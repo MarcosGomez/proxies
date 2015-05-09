@@ -7,17 +7,6 @@
 // Telnet into cproxy using "telnet localhost 5200"
 
 
-//Main Points
-//X) Heartbeat message after 1 sec of inactivity. Close sockets after 3 sec
-//X) Cproxy should keep trying to connect to sproxy. Should work when new address is added.
-//?) No data loss. Need something like sequence/ack number to retransmit missing data.
-//X) Sproxy can tell difference between new session or continuation of old. Should restart
-//   connection with telnet daemon if new.
-
-//5)Project report that documents the design of the packet format and protocol actions.
-//6)10% extra credit for supporting multiple concurrent telnet sessions.
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +24,7 @@
 #include <fcntl.h>
 
 
-#define DEBUG 0
+#define DEBUG 1
 #define INCOMING_PORT 5200
 #define OUTGOING_PORT 6200
 #define TELNET_PORT 23

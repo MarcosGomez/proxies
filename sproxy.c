@@ -18,7 +18,7 @@
 #include <unistd.h> //close
 #include <sys/time.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #define INCOMING_PORT 6200
 #define OUTGOING_PORT 23
 #define BACKLOG 10  //how many pending connections queue will hold
@@ -302,7 +302,8 @@ int main( void ){
                     gettimeofday(&timeNow, NULL);
                     if(timeNow.tv_sec - receiveTime.tv_sec >= 1){
                         numTimeouts = (int) timeNow.tv_sec - receiveTime.tv_sec;
-                        printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
+                        if(DEBUG)
+                            printf("Timeout occured by gettimeofday! No data after %d seconds\n", numTimeouts);
 
                         if(numTimeouts >= 3 && numTimeouts < 9999){
                             if(DEBUG){
