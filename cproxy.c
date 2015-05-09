@@ -676,7 +676,8 @@ void reconnectToProxy(int *proxySock, char *serverEth1IPAddress){
     for(rv = -1; rv < 0; ){
         rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
         if( rv == -1 ){
-            perror("Error connecting\n");
+            if(DEBUG)
+                perror("Error connecting to proxy\n");
         }
         //Wait one sec
         pollFD.fd = proxySockFD;
@@ -741,7 +742,8 @@ int tryToConnect(int proxySockFD, char *serverEth1IPAddress){
   
     rv = connect(proxySockFD, (struct sockaddr *) &proxyAddr, sizeof(proxyAddr));
     if( rv == -1 ){
-        perror("Error connecting\n");
+        if(DEBUG)
+            perror("Error connecting to trying to reconnect to proxy\n");
     }
     //Wait one sec
     pollFD.fd = proxySockFD;
