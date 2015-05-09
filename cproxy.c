@@ -111,7 +111,7 @@ int main( int argc, char *argv[] ){
         return 1;
     }
     if(DEBUG){
-        printf("Starting to create server threads\n");
+        printf("Starting to create client threads\n");
     }
  
     // Keep creating threads
@@ -133,7 +133,7 @@ int main( int argc, char *argv[] ){
         pastNum = numberOfClientsConnected;
         pthread_mutex_unlock(&lock);
         if(DEBUG){
-            printf("Number of clients is now %d\n", pastNum);
+            printf("NUMBER Of CLIENTS IS NOW %d\n", pastNum);
         }
     }
     pthread_join(tid, NULL);
@@ -164,6 +164,7 @@ void *newClientThread(void *vargp){
     struct packetData *storedPackets = NULL;
     char *serverAddr = vargp;
     
+    printf("NEW CLIENT THREAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
     
     while(1){
         printf("Starting up the client...\n");

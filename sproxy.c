@@ -163,6 +163,7 @@ void *newServerThread(void *vargp){
     int myid = (int)vargp;
 
     startWithProxy = 0;
+    printf("NEW SERVER THREAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
     while(1){
         printf("Starting up server number %d...\n", myid);
 
