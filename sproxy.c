@@ -112,7 +112,7 @@ int main( void ){
 
         while(1){
             pthread_mutex_lock(&lock);
-            if(pastNum == numberOfServersConnected){
+            if(pastNum != numberOfServersConnected){
                 pthread_mutex_unlock(&lock);
                 break;
             }
